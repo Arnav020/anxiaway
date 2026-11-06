@@ -595,3 +595,156 @@ def test_high_reported_distress_stops_the_plan_advancing():
     run_all(session)
     session.finish(40, {"peak_distress": 9})
     assert session.report["decision"] == "repeat"
+
+
+# ---------- The prediction track record ----------
+def _pred(i, **kw):
+    base = dict(id=f"p{i}", text=f"If I do thing {i}, it will go badly", theme="being judged", belief_before=80,
+                created_at=i, due_at=0, outcome=None)
+    return {**base, **kw}
+
+
+def _record(raw):
+    from toward import record
+    return record.parse_predictions(raw)
+
+
+def test_stats_come_from_fixed_code_and_need_enough_data():
+    from toward.record import compute_stats
+    few = compute_stats(_record([_pred(1, outcome="no"), _pred(2, outcome="yes", coped=1)]), 100)
+    assert few["state"] == "too_few" and few["checked"] == 2 and few["actual_pct"] == 50 and few["got_through"] == 1
+    many = compute_stats(_record([_pred(i, outcome="no") for i in range(4)] + [_pred(9, outcome="partly")]), 100)
+    assert many["state"] == "overestimates" and many["forecast_pct"] == 80 and many["actual_pct"] == 10
+    close = compute_stats(_record([_pred(i, outcome="yes") for i in range(5)]), 100)
+    assert close["state"] == "close"
+    assert compute_stats([], 100)["forecast_pct"] is None
+
+
+def test_support_is_flagged_when_coping_is_hard():
+    from toward.record import compute_stats
+    stats = compute_stats(_record([_pred(1, outcome="yes", coped=0), _pred(2, outcome="partly", coped=0)]), 100)
+    assert stats["needs_support"]
+
+
+def test_a_damaged_entry_is_dropped_and_breaks_nothing():
+    good = _pred(1)
+    assert [p.id for p in _record([good, {"id": "BAD!"}, {"nonsense": True}])] == ["p1"]
+
+
+def test_agent_tools_enforce_the_rules():
+    from toward.record import Toolbox
+    box = Toolbox(_record([_pred(1, due_at=50), _pred(2, due_at=5000), _pred(3, outcome="yes")]), 100)
+    ok = dict(pattern="Too little to tell.", next_action="Check it.", why="It is due.")
+    assert "error" in box.call("schedule_follow_up", {"prediction_id": "p1", "days": 2})
+    assert box.call("schedule_follow_up", {"prediction_id": "p2", "days": 99})["days"] == 14
+    assert "error" in box.call("schedule_follow_up", {"prediction_id": "p3", "days": 2})
+    assert "error" in box.call("finish_review", {**ok, "prediction_id": "p2"}), "an overdue check must come first"
+    assert "error" in box.call("finish_review", {**ok, "prediction_id": "p1", "pattern": "Nine of ten, 90 percent."})
+    assert "error" in box.call("finish_review", {**ok, "prediction_id": "p1", "pattern": "Your anxiety is wrong."})
+    assert "error" in box.call("finish_review", {**ok, "prediction_id": "p1", "why": "These rarely happen."}), "too few to claim"
+    assert "error" in box.call("no_such_tool", {})
+    assert box.call("finish_review", {**ok, "prediction_id": "p1"})["kind"] == "check"
+    assert box.result["prediction_id"] == "p1"
+    assert any(t["rejected"] for t in box.trace)
+
+
+def test_review_falls_back_when_the_model_is_missing_or_fails():
+    from toward.record import review
+
+    class Broken:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    raise groq.APIConnectionError(request=httpx.Request("POST", "http://x"))
+
+    for client in (None, Broken()):
+        result = review(_record([_pred(1, due_at=50), _pred(2)]), 100, client)
+        assert result["status"] == "ok" and result["source"] == "Scripted"
+        assert result["prediction_id"] == "p1" and result["kind"] == "check"
+        assert result["trace"][0]["tool"] == "safety_scan"
+
+
+def test_review_runs_tools_from_the_model_then_decides():
+    from toward.record import review
+    script = [("finish_review", {"pattern": "Nine of 10.", "prediction_id": "p1", "next_action": "Try a small step.", "why": "Only one open."}),
+              ("schedule_follow_up", {"prediction_id": "p1", "days": 2}),
+              ("finish_review", {"pattern": "Too little yet.", "prediction_id": "p1", "next_action": "Try a small step.", "why": "Only one open."})]
+    calls = []
+
+    class Fake:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    calls.append(kwargs)
+                    name, args = script[len(calls) - 1]
+                    fn = type("F", (), {"name": name, "arguments": json.dumps(args)})
+                    call = type("TC", (), {"id": f"c{len(calls)}", "function": fn})
+                    message = type("M", (), {"content": "", "tool_calls": [call]})
+                    return type("R", (), {"choices": [type("C", (), {"message": message})]})
+
+    result = review(_record([_pred(1)]), 100, Fake())
+    assert result["source"] == "Groq" and result["kind"] == "test" and len(calls) == 3
+    assert [t["tool"] for t in result["trace"]] == ["safety_scan", "get_record_stats", "list_checked_predictions", "list_open_predictions", "compare_themes", "finish_review", "schedule_follow_up", "finish_review"]
+    assert result["trace"][5]["rejected"], "digits are rejected by fixed code, and the model gets to try again"
+    assert result["pattern"] == "Too little yet." and "p1" in result["follow_ups"]
+
+
+def test_crisis_language_stops_the_record_before_any_model():
+    from toward.record import review
+
+    class Never:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    raise AssertionError("A model saw crisis text")
+
+    result = review(_record([_pred(1, text="If this fails I want to end my life")]), 100, Never())
+    assert result["status"] == "crisis" and "14416" in result["message"]
+
+
+def test_sharpen_blocks_danger_and_keeps_words_when_scripted():
+    from toward.record import sharpen
+    assert sharpen("I want to end my life tomorrow", None)["status"] == "crisis"
+    assert sharpen("My partner hits me when I speak", None)["status"] == "support"
+    kept = sharpen("Everyone will laugh at me", None)
+    assert kept["status"] == "ok" and kept["prediction"] == "Everyone will laugh at me" and kept["source"] == "Scripted"
+
+
+def test_record_endpoints_and_session_history(monkeypatch):
+    http, server = client(monkeypatch)
+    raw = [_pred(1, outcome="no"), {"bad": "entry"}]
+    assert http.post("/api/record/stats", json={"predictions": raw}).json()["checked"] == 1
+    assert http.post("/api/record/review", json={"predictions": raw}).json()["status"] == "ok"
+    assert http.post("/api/record/sharpen", json={"worry": "They will all laugh at me"}).json()["status"] == "ok"
+    with_history = http.post("/api/session", json={**SETUP, "history": raw}).json()
+    assert with_history["status"] == "planned" and "1 earlier predictions" in with_history["record_note"]
+    without = http.post("/api/session", json=SETUP).json()
+    assert without["status"] == "planned" and without["record_note"] is None
+
+
+def test_final_wording_is_checked_and_a_just_checked_result_reaches_the_agent(monkeypatch):
+    from toward.record import review
+    http, _ = client(monkeypatch)
+    assert http.post("/api/record/check", json={"worry": "I want to end my life"}).json()["status"] == "crisis"
+    assert http.post("/api/record/check", json={"worry": "They will all laugh"}).json() == {"status": "ok"}
+    seen = []
+
+    class Fake:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    seen.append(kwargs["messages"][1]["content"])
+                    args = {"pattern": "in your record so far, one thing", "prediction_id": None, "next_action": "try it again", "why": "it fits"}
+                    fn = type("F", (), {"name": "finish_review", "arguments": json.dumps(args)})
+                    message = type("M", (), {"content": "", "tool_calls": [type("TC", (), {"id": "c1", "function": fn})]})
+                    return type("R", (), {"choices": [type("C", (), {"message": message})]})
+
+    result = review(_record([_pred(1, outcome="no", belief_after=30)]), 100, Fake(), "p1")
+    assert "just_checked" in seen[0] and result["kind"] == "add"
+    assert result["next_action"] == "Try it again."
+    scripted = review(_record([_pred(1, outcome="no")]), 100, None, "p1")
+    assert "next time" in scripted["next_action"]

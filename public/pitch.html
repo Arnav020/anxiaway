@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live pitch mode | Toward</title>
+<meta name="description" content="Log a real fear before a pitch, then let the judges decide what actually happened. The agent updates the record live.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#252B33">
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/room.css">
+<link rel="stylesheet" href="/css/record.css">
+</head>
+<body class="pitch-page">
+<main class="pitch">
+  <header class="pitch-top">
+    <a class="btn btn-white btn-sm" href="/record"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Track record</a>
+    <span class="caption-3 pitch-mode"><i class="pulse"></i>Live pitch mode</span>
+    <button class="btn btn-plain btn-sm pitch-reset" id="reset-btn" type="button" hidden>Start over</button>
+  </header>
+
+  <!-- 1. Before the pitch -->
+  <form class="pitch-step" id="p-setup" novalidate>
+    <span class="caption-3 pitch-eyebrow">Before the pitch</span>
+    <h1 class="heading-1">What does anxiety predict about the next ten minutes?</h1>
+    <div class="chips" id="p-chips">
+      <button class="chip" type="button">I'll freeze during Q&amp;A.</button>
+      <button class="chip" type="button">I'll lose my place in front of everyone.</button>
+      <button class="chip" type="button">The judges will see that I don't know my own project.</button>
+    </div>
+    <label class="field"><span class="visually-hidden">Your prediction</span><textarea id="p-worry" rows="2" maxlength="300" placeholder="Write the real one"></textarea></label>
+    <div class="pitch-dial">
+      <span class="title-2">How likely does it feel right now?</span>
+      <output class="heading-1 mono" id="p-belief-out">70%</output>
+      <input id="p-belief" type="range" min="0" max="100" value="70" aria-label="How likely it feels, in percent">
+    </div>
+    <button class="agree" id="p-sample" type="button" role="switch" aria-checked="true">
+      <span class="agree-track"><span class="agree-knob"></span></span>
+      <span class="agree-text"><strong class="title-3">Show a sample history behind it</strong><span class="caption-5">Labelled as sample on screen. Only this prediction is real.</span></span>
+    </button>
+    <p class="error" id="p-error" role="alert" hidden></p>
+    <button class="btn btn-cta btn-lg pitch-next" id="p-sharpen" type="submit">Make it checkable<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+    <p class="caption-5 pitch-note">This text is sent to Groq through our server, which keeps none of it. Your record stays in this browser. It isn't therapy or diagnosis.</p>
+  </form>
+
+  <!-- 2. Confirm and lock -->
+  <form class="pitch-step" id="p-confirm" novalidate hidden>
+    <span class="caption-3 pitch-eyebrow" id="p-confirm-source"></span>
+    <h1 class="heading-2">Lock it in, before anyone knows how this goes.</h1>
+    <label class="field"><span class="title-3">The prediction</span><textarea id="p-pred" rows="2" maxlength="300"></textarea></label>
+    <label class="field"><span class="title-3">How the judges will know</span><textarea id="p-check" rows="2" maxlength="240"></textarea></label>
+    <p class="error" id="p-confirm-error" role="alert" hidden></p>
+    <div class="row-gap">
+      <button class="btn btn-cta btn-lg pitch-next" type="submit"><i class="icon i20" style="--i:url(/icons/lock-key.svg)"></i>Lock prediction</button>
+      <button class="btn btn-plain pitch-plain" id="p-back" type="button">Back</button>
+    </div>
+  </form>
+
+  <!-- 3. Locked, during the pitch -->
+  <section class="pitch-step pitch-locked" id="p-locked" hidden>
+    <span class="caption-3 pitch-eyebrow"><i class="icon" style="--i:url(/icons/lock-key.svg)"></i>Locked at <span id="p-locked-at"></span> · <span class="mono" id="p-timer">00:00</span></span>
+    <div class="locked-card clay">
+      <span class="caption-3 muted">Anxiety said</span>
+      <h1 class="heading-2" id="p-locked-text"></h1>
+      <div class="locked-row">
+        <div><span class="caption-4 muted">It felt</span><strong class="heading-1 mono" id="p-locked-belief"></strong></div>
+        <div><span class="caption-4 muted">We'll know by</span><p class="title-2" id="p-locked-check"></p></div>
+      </div>
+    </div>
+    <p class="title-2 pitch-sub">Give the pitch. Come back after Q&amp;A, and hand the decision to the judges.</p>
+    <button class="btn btn-cta btn-lg pitch-next" id="p-to-verdict" type="button">The pitch is over<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+  </section>
+
+  <!-- 4. The judges decide -->
+  <form class="pitch-step" id="p-verdict" novalidate hidden>
+    <span class="caption-3 pitch-eyebrow">After the pitch</span>
+    <h1 class="heading-2" id="p-verdict-q"></h1>
+    <p class="title-2 pitch-sub" id="p-verdict-check"></p>
+    <div class="verdict-q">
+      <span class="heading-5">Judges, did it happen?</span>
+      <div class="verdict-big" id="v-outcome"></div>
+    </div>
+    <div class="verdict-grid">
+      <div class="stack-sm"><span class="title-3">Compared with what the presenter expected, it was</span><div id="v-compared" aria-label="Compared with what was expected"></div></div>
+      <div class="stack-sm"><span class="title-3">How did the presenter cope?</span><div id="v-coped" aria-label="How the presenter coped"></div></div>
+    </div>
+    <div class="pitch-dial">
+      <span class="title-2">Presenter: how likely does this feel now?</span>
+      <output class="heading-1 mono" id="v-belief-out"></output>
+      <input id="v-belief" type="range" min="0" max="100" aria-label="How likely it feels now, in percent">
+    </div>
+    <p class="error" id="v-error" role="alert" hidden></p>
+    <button class="btn btn-cta btn-lg pitch-next" id="v-save" type="submit">Update the record<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+  </form>
+
+  <!-- 5. The result -->
+  <section class="pitch-step pitch-result" id="p-result" hidden>
+    <div class="result-head">
+      <span class="caption-3 pitch-eyebrow">What actually happened</span>
+      <span class="rec-tag caption-3" id="r-sample" hidden></span>
+    </div>
+    <h1 class="heading-2" id="r-headline"></h1>
+    <div class="result-grid">
+      <div class="stack">
+        <div class="locked-card clay">
+          <span class="caption-3 muted">Anxiety said</span>
+          <p class="heading-6" id="r-text"></p>
+          <div class="belief-move">
+            <div><span class="caption-4 muted">Before</span><strong class="heading-2 mono" id="r-before"></strong></div>
+            <i class="icon i24" style="--i:url(/icons/arrow-right.svg)"></i>
+            <div><span class="caption-4 muted">Now</span><strong class="heading-2 mono" id="r-after"></strong></div>
+          </div>
+          <p class="body-5" id="r-detail"></p>
+        </div>
+        <div class="locked-card clay" id="r-score-card">
+          <span class="caption-3 muted">The record, with this added</span>
+          <div class="fbars fbars-light" id="r-bars"></div>
+          <p class="body-6 muted" id="r-state"></p>
+        </div>
+      </div>
+      <section class="locked-card clay agent-card" aria-live="polite">
+        <div class="agent-head"><h2 class="heading-6">What the agent decided</h2><span class="caption-4 muted" id="r-source"></span></div>
+        <div class="agent-loading" id="r-loading"><div class="skeleton-title"></div><div class="skeleton-line"></div><p class="body-6 muted">The agent is reading the record.</p></div>
+        <div class="stack" id="r-agent" hidden>
+          <p class="title-3" id="r-pattern"></p>
+          <div class="next-box"><span class="caption-3">Next step</span><p class="heading-6" id="r-next"></p><p class="caption-5" id="r-why"></p></div>
+          <p class="support-note body-5" id="r-support" hidden></p>
+          <div class="legend caption-4"><span><i class="dot dot-code"></i>Fixed code</span><span><i class="dot dot-llm"></i>Chosen by the language model</span></div>
+          <ol class="trace" id="r-trace"></ol>
+        </div>
+        <p class="error" id="r-error" role="alert" hidden></p>
+      </section>
+    </div>
+    <div class="row-gap">
+      <a class="btn btn-cta" href="/record">See the full record</a>
+      <button class="btn btn-plain pitch-plain" id="r-again" type="button">Another prediction</button>
+    </div>
+  </section>
+</main>
+<dialog class="dlg clay" id="support-dlg" aria-labelledby="support-title">
+  <h2 class="heading-5" id="support-title">Let's get you the right support</h2>
+  <p class="body-3" id="support-text"></p>
+  <p class="caption-5 muted">This response comes from fixed safety wording, not from a language model.</p>
+  <div class="dlg-actions"><button class="btn btn-cta" id="support-close" type="button">Close</button></div>
+</dialog>
+<script type="module" src="/js/pitch.js"></script>
+</body>
+</html>

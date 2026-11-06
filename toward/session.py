@@ -116,6 +116,7 @@ class Session:
         plan, source = self.team.plan({
             "event": s["event"], "days_until": s["days_until"], "prediction": s["prediction"],
             "gad_band": care.gad_band(score), "concerns": care.gad_concerns(s["gad_items"]),
+            "record_note": s.get("record_note"),
         })
         ms = (time.perf_counter() - started) * 1000
         self.plan = plan.model_dump()
@@ -352,5 +353,5 @@ class Session:
             "prediction": self.setup["prediction"], "event": self.setup["event"], "pipeline": self.pipeline,
             "readings": self.readings, "data_label": self.stream.label, "gad": self._gad_view(),
             "pathway": care.PATHWAYS[care.gad_band(sum(self.setup["gad_items"]))],
-            "verdict": self.verdicts[-1] if self.verdicts else None,
+            "verdict": self.verdicts[-1] if self.verdicts else None, "record_note": self.setup.get("record_note"),
         }

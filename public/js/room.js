@@ -1,6 +1,7 @@
 import { Panel } from "/js/panel.js";
 import { Voices } from "/js/voice.js";
 import { openConnect } from "/js/connect.js";
+import * as ledger from "/js/ledger.js";
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -66,6 +67,9 @@ let useVoice = false;
 voices.onAmp = (v) => room?.setAmp(v);
 voices.getToken = () => token;
 $("connect-app").addEventListener("click", openConnect);
+let usedSample = false;
+let fromPrediction = null;
+let savedToRecord = false;
 
 async function api(path, body) {
   const res = await fetch(`/api/${path}`, {
@@ -243,6 +247,7 @@ $("w-consent").addEventListener("submit", (e) => {
 });
 
 $("wiz-sample").addEventListener("click", () => {
+  usedSample = true;
   const p = SAMPLE_PROFILE;
   $("f-event").value = p.event;
   $("f-days").value = p.days;
@@ -276,6 +281,7 @@ $("w-connect").addEventListener("submit", async (e) => {
       heart_condition: form.heart_condition,
       crisis: form.crisis,
       consent: true,
+      history: ledger.forApi(),
     });
     accept(view);
     if (view.status === "planned") renderPlan(performance.now() - started);
@@ -291,6 +297,8 @@ function renderPlan(ms) {
   $("plan-meta").textContent = source.includes("Groq") ? `· written live by Groq in ${(ms / 1000).toFixed(1)} s` : "· from the scripted planner";
   $("plan-path").textContent = session.pathway.name;
   $("plan-why").textContent = session.pathway.why;
+  $("plan-record").hidden = !session.record_note;
+  $("plan-record").textContent = session.record_note ? `From your track record: ${session.record_note}` : "";
   $("plan-gad").textContent = `${session.gad.score}/21 · ${session.gad.band}`;
   $("plan-event").textContent = session.event;
   $("plan-said").textContent = session.prediction;
@@ -1012,6 +1020,7 @@ function renderReport() {
   $("r-steps").replaceChildren(...[r.next_step, ...r.pathway.steps].filter((s, i, all) => all.indexOf(s) === i).map((s) => el("li", "", s)));
   $("r-mission").textContent = r.mission;
   $("r-practice").textContent = r.next_practice;
+  saveToRecord(r);
   const measured = r.evidence.filter((e) => e.source !== "sample" && e.pause_s !== null);
   const fillers = r.evidence.reduce((n, e) => n + (e.fillers || 0), 0);
   const apologies = r.evidence.reduce((n, e) => n + (e.apologies || 0), 0);
@@ -1021,6 +1030,22 @@ function renderReport() {
   $("r-trail").replaceChildren(...[...session.trail].reverse().map(trailItem));
   $("r-note-demo").textContent = "Screening and practice support from a student research prototype, not a diagnosis or treatment. This session used demo readings, so it shows how the system runs, not that the method works.";
   scrollTo(0, 0);
+}
+function saveToRecord(r) {
+  // The session is practice, so the real outcome stays open until the person checks it later.
+  const dueAt = Date.now() + r.next_day * 86400000;
+  try {
+    if (!savedToRecord) {
+      savedToRecord = true;
+      const existing = fromPrediction && ledger.get(fromPrediction);
+      if (existing) ledger.update(existing.id, { practised: (existing.practised || 0) + 1 });
+      else ledger.add({ text: r.prediction, event: r.event, belief_before: r.belief_before, due_at: dueAt, source: "session", sample: usedSample });
+    }
+    $("r-saved").textContent = `Saved to your track record. Check what really happened by ${new Date(dueAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}.`;
+    $("r-saved").hidden = false;
+  } catch {
+    $("r-saved").hidden = true;
+  }
 }
 $("again-btn").addEventListener("click", () => location.assign("/checkin"));
 $("print-btn").addEventListener("click", () => print());
@@ -1045,3 +1070,17 @@ $("ics-btn").addEventListener("click", () => {
 buildInject();
 buildPost();
 showStep("w-event", false);
+
+/* Arriving from the track record to practise one prediction */
+const practising = new URLSearchParams(location.search).get("pred");
+const chosen = practising && ledger.get(practising);
+if (chosen && !chosen.outcome) {
+  fromPrediction = chosen.id;
+  usedSample = !!chosen.sample;
+  $("f-pred").value = chosen.text;
+  $("f-belief").value = chosen.belief_before;
+  $("o-belief").textContent = `${chosen.belief_before}%`;
+  if (chosen.event) $("f-event").value = chosen.event;
+  $("pred-banner").textContent = `Practising a prediction from your track record: "${chosen.text}"`;
+  $("pred-banner").hidden = false;
+}

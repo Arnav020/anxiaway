@@ -26,6 +26,7 @@
       <span class="caption-3 eyebrow">Anxiety check-in · Step 1 of 6</span>
       <h1 class="heading-3">Where does anxiety show up for you?</h1>
       <p class="body-3 muted">Pick something real that you've been dreading or avoiding.</p>
+      <p class="body-5 pred-banner" id="pred-banner" hidden></p>
       <div class="chips" id="event-chips">
         <button class="chip" type="button">Speaking up in class or meetings</button>
         <button class="chip" type="button">An upcoming exam or viva</button>
@@ -107,7 +108,7 @@
       <div class="consent clay">
         <ul class="consent-list">
           <li><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><div><strong class="title-3">This is an AI research prototype.</strong><p class="body-6 muted">The guides are AI generated characters, not clinicians. It isn't therapy, diagnosis or medical advice, and nobody has shown yet that it helps.</p></div></li>
-          <li><i class="icon i24" style="--i:url(/icons/waveform.svg)"></i><div><strong class="title-3">What you share goes to Groq.</strong><p class="body-6 muted">Your words and screening band help write your plan and summary. We keep no database and no accounts. <a href="/privacy" target="_blank">Privacy note</a>.</p></div></li>
+          <li><i class="icon i24" style="--i:url(/icons/waveform.svg)"></i><div><strong class="title-3">What you share goes to Groq.</strong><p class="body-6 muted">Your words and screening band help write your plan and summary. We keep no database and no accounts, and your track record stays in this browser. <a href="/privacy" target="_blank">Privacy note</a>.</p></div></li>
           <li><i class="icon i24" style="--i:url(/icons/stop-circle.svg)"></i><div><strong class="title-3">It may feel uncomfortable, on purpose.</strong><p class="body-6 muted">You can stop at any moment, for any reason, with one tap.</p></div></li>
         </ul>
         <button class="agree" id="agree" type="button" role="switch" aria-checked="false">
@@ -146,6 +147,7 @@
       <span class="caption-3 eyebrow">Your care plan <span class="muted" id="plan-meta"></span></span>
       <h1 class="heading-3" id="plan-path"></h1>
       <p class="title-2 muted" id="plan-why"></p>
+      <p class="body-5 pred-banner" id="plan-record" hidden></p>
       <div class="plan-basis">
         <div class="basis clay"><span class="caption-4 muted">GAD-7</span><strong class="heading-5 mono" id="plan-gad"></strong></div>
         <div class="basis clay"><span class="caption-4 muted">Situation</span><strong class="title-3" id="plan-event"></strong></div>
@@ -277,6 +279,7 @@
     <header class="summary-top no-print">
       <a class="btn btn-white btn-sm" href="/"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Home</a>
       <div class="summary-actions">
+        <a class="btn btn-white btn-sm" href="/record">Track record</a>
         <button class="btn btn-white btn-sm" id="print-btn" type="button">Save or share as PDF</button>
         <button class="btn btn-cta btn-sm" id="again-btn" type="button">New check-in</button>
       </div>
@@ -357,7 +360,7 @@
       <article class="panel-card next-card clay">
         <h2 class="title-2">Your next steps</h2>
         <ol class="next-steps body-5" id="r-steps"></ol>
-        <div class="replan"><span class="caption-3 muted">The agent's updated next session</span><p class="title-3" id="r-practice"></p><button class="btn btn-white btn-sm no-print" id="ics-btn" type="button">Add a check-in to my calendar</button></div>
+        <div class="replan"><span class="caption-3 muted">The agent's updated next session</span><p class="title-3" id="r-practice"></p><button class="btn btn-white btn-sm no-print" id="ics-btn" type="button">Add a check-in to my calendar</button><a class="body-5 no-print" id="r-saved" href="/record" hidden></a></div>
         <div class="mission"><span class="caption-3">This week's real world test</span><p class="title-3" id="r-mission"></p></div>
       </article>
     </div>

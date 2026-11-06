@@ -178,6 +178,7 @@ class ScriptedAgents:
 
 
 _PLAN_SYSTEM = """You are the care planner in an anxiety support prototype. It is not therapy and never claims to treat anything.
+record_note, if present, summarises what happened with the person's earlier predictions. Use it to pitch the first step at a sensible level, and don't quote its numbers.
 The person has a situation their anxiety makes them avoid (event), a feared prediction, and a GAD-7 screening band with their strongest concerns.
 testable_version: rewrite their fear as one specific prediction they could test, in different words from theirs, naming an observable outcome. Under 20 words.
 target_pause_s: if the fear involves pausing or silence, the pause in seconds to practise (3 to 8). Otherwise 3.
@@ -266,7 +267,7 @@ class GroqAgents:
         return None
 
     def plan(self, facts: dict) -> LadderPlan | None:
-        allowed = {k: facts.get(k) for k in ("event", "days_until", "prediction", "gad_band", "concerns")}
+        allowed = {k: facts.get(k) for k in ("event", "days_until", "prediction", "gad_band", "concerns", "record_note")}
         # The plan is the first thing people see, so it gets one retry.
         for _ in range(2):
             result = self._call(PLAN_MODEL, _PLAN_SYSTEM, allowed, LadderPlan)

@@ -24,7 +24,7 @@
 .hero-verdict[data-v=high]::before { background: #C9654A; }
 .hero-copy { position: relative; z-index: 2; padding: 88px 24px 0; display: flex; flex-direction: column; gap: 16px; align-items: center; text-align: center; }
 .theme-chip { padding: 4px 12px; border-radius: 9999px; background: rgba(255, 255, 255, .12); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); color: #F2EEE6; }
-.hero-title { max-width: 760px; }
+.hero-title { max-width: 960px; }
 .hero-sub { max-width: 720px; color: #DDE0E4; }
 .hero-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; padding-top: 8px; }
 .hero-more { color: #FFF; text-underline-offset: 4px; }
@@ -180,4 +180,25 @@
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; }
   .tagline .w { color: var(--ink); }
+}
+
+/* Keep score */
+.section.keep { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+.keep-copy, .keep-side { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.keep-steps { display: flex; flex-direction: column; gap: 12px; counter-reset: k; }
+.keep-steps li { counter-increment: k; display: grid; grid-template-columns: 24px 1fr; column-gap: 8px; }
+.keep-steps li::before { content: counter(k); font-family: "Geist Mono", ui-monospace, monospace; font-weight: 600; color: var(--accent); grid-row: span 2; }
+.keep-steps strong { font-weight: 600; }
+.keep-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.keep-score { padding: 32px; display: flex; flex-direction: column; gap: 16px; }
+.keep-tag { align-self: flex-start; padding: 4px 12px; border-radius: 9999px; background: var(--sand); }
+.keep-bar { display: flex; flex-direction: column; gap: 4px; }
+.keep-bar-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.keep-track { height: 16px; border-radius: 8px; background: var(--sunk); overflow: hidden; }
+.keep-track i { display: block; height: 100%; border-radius: 8px; background: var(--terracotta); }
+.keep-bar-b .keep-track i { background: var(--accent); }
+.keep-study { padding: 24px 32px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; transition: transform .5s var(--curve); }
+.keep-study:hover { transform: translateY(-2px); }
+@media (max-width: 860px) {
+  .section.keep { grid-template-columns: 1fr; gap: 32px; }
 }

@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Toward: an AI care agent for anxiety</title>
-<meta name="description" content="Toward is an agentic AI prototype for healthcare and human well-being. It combines GAD-7 screening, wearable readings and an anxiety model, decides what care step fits, and guides you through it safely.">
+<title>Toward: your anxiety makes predictions, we keep score</title>
+<meta name="description" content="Toward is an agentic AI prototype for healthcare and human well-being. It screens with GAD-7, turns each worry into a prediction you can check, tests it safely, and follows up on what really happened.">
 <meta property="og:title" content="Toward: an AI care agent for anxiety">
-<meta property="og:description" content="Agentic AI for healthcare and human well-being. Screening, wearable readings and guided care steps, under safety rules no language model can override.">
+<meta property="og:description" content="Agentic AI for healthcare and human well-being. Anxiety makes predictions, and Toward keeps score, under safety rules no language model can override.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="/img/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -23,6 +23,7 @@
   <a class="brand" href="/" aria-current="page"><span class="brand-mark" aria-hidden="true"></span><span class="title-2">Toward</span></a>
   <div class="nav-links">
     <a href="#theme">Theme</a>
+    <a href="#keep-score">Track record</a>
     <a href="#how">How it works</a>
     <a href="#research">Our research</a>
     <a href="#safety">Safety</a>
@@ -32,6 +33,7 @@
 </nav>
 <div class="menu" id="menu" hidden>
   <a href="#theme">Theme</a>
+  <a href="#keep-score">Track record</a>
   <a href="#how">How it works</a>
   <a href="#research">Our research</a>
   <a href="#safety">Safety</a>
@@ -44,11 +46,11 @@
     <canvas id="hero-trace" aria-hidden="true"></canvas>
     <div class="hero-copy">
       <span class="theme-chip caption-3">Agentic AI for Healthcare &amp; Human Well-being</span>
-      <h1 class="heading-1 hero-title">Understand your anxiety.<br>Then act on it.</h1>
-      <p class="title-1 hero-sub">A care agent that combines your GAD-7, wearable readings and an anxiety model, then tests what your anxiety predicts, one safe step at a time.</p>
+      <h1 class="heading-1 hero-title">Your anxiety makes predictions.<br>We keep score.</h1>
+      <p class="title-1 hero-sub">An AI care agent that screens with GAD-7, turns each worry into a prediction you can check, tests it safely, and follows up on what really happened.</p>
       <div class="hero-actions">
         <a class="btn btn-cta btn-lg" href="/checkin">Start a check-in<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
-        <a class="hero-more body-5" href="#how">See how it works</a>
+        <a class="hero-more body-5" href="/record?sample=1">See a sample record</a>
       </div>
     </div>
     <div id="hero-panel" role="group" aria-label="Three AI generated guides"></div>
@@ -68,7 +70,7 @@
       <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/hand-palm.svg)"></i><h3 class="heading-6">Accessibility</h3><p class="body-6 muted">Voice or text, at any hour, in a browser. Support between appointments, and a clear referral whenever a person is the better answer.</p></div>
       <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/path.svg)"></i><h3 class="heading-6">Rehabilitation</h3><p class="body-6 muted">A graded ladder helps you step back into what anxiety made you avoid, following the structure of exposure based approaches.</p></div>
       <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/target.svg)"></i><h3 class="heading-6">Personalised well-being</h3><p class="body-6 muted">Your screening, your baseline, your feared prediction and your practice plan. You leave with a summary to keep or share with a counsellor.</p></div>
-      <div class="fit-card fit-agent clay reveal"><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><h3 class="heading-6">And truly agentic</h3><p class="body-6">It assesses, builds a graded plan, chooses tactics, acts, and updates your next step from what happened, inside safety limits it can't override.</p></div>
+      <div class="fit-card fit-agent clay reveal"><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><h3 class="heading-6">And truly agentic</h3><p class="body-6">It remembers your predictions, follows up on them, decides what to test next, and replans from what really happened, inside safety limits it can't override.</p></div>
     </div>
   </section>
 
@@ -87,6 +89,38 @@
     <p class="heading-2" id="tagline">Anxiety says the worst will happen.<br>Toward helps you find out what really does.</p>
   </section>
 
+  <section class="section keep" id="keep-score">
+    <div class="keep-copy">
+      <span class="eyebrow caption-3 reveal">The core idea</span>
+      <h2 class="heading-3 section-title reveal">Anxiety is a forecaster nobody checks.</h2>
+      <p class="title-2 muted reveal">It predicts the worst, you avoid the situation, and you never find out what would have happened. Toward logs each prediction, then comes back to ask.</p>
+      <ol class="keep-steps body-6 reveal">
+        <li><strong>Make it checkable.</strong> The agent turns a worry into something that either happens or doesn't.</li>
+        <li><strong>Test it safely.</strong> Practise with AI guides, or take a small real step.</li>
+        <li><strong>Find out.</strong> Record what happened, how bad it was, and how you coped.</li>
+        <li><strong>Replan.</strong> The agent reads your record and decides what to test next.</li>
+      </ol>
+      <div class="keep-actions reveal">
+        <a class="btn btn-cta" href="/record?sample=1">See a sample record</a>
+        <a class="btn btn-white" href="/pitch">Try live pitch mode</a>
+      </div>
+      <p class="caption-5 muted reveal">No account. Your record stays in your browser. The agent never says your anxiety is wrong, because some worries do come true. It tracks how you coped, and points you to a person when that's what's needed.</p>
+    </div>
+    <div class="keep-side">
+      <figure class="keep-score clay reveal" aria-label="A sample track record">
+        <figcaption class="keep-tag caption-3">Sample data, not a real person</figcaption>
+        <div class="keep-bar"><div class="keep-bar-head"><span class="title-4">How likely it felt, on average</span><strong class="heading-5 mono">70%</strong></div><div class="keep-track"><i style="width:70%"></i></div></div>
+        <div class="keep-bar keep-bar-b"><div class="keep-bar-head"><span class="title-4">How often it happened</span><strong class="heading-5 mono">28%</strong></div><div class="keep-track"><i style="width:28%"></i></div></div>
+        <p class="body-6 muted">9 predictions checked: 2 came true, 1 partly. Each time, the person got through it.</p>
+      </figure>
+      <a class="keep-study clay reveal" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7233480/" target="_blank" rel="noopener">
+        <strong class="heading-2 mono">91.4%</strong>
+        <span class="body-5">of worry predictions didn't come true, in a study that had people track them</span>
+        <span class="caption-5 muted">LaFreniere and Newman, Behavior Therapy, 2020. A small study of 29 undergraduates who screened positive for GAD. Your own record may look very different.</span>
+      </a>
+    </div>
+  </section>
+
   <section class="section" id="how">
     <span class="eyebrow caption-3 reveal">How it works</span>
     <h2 class="heading-3 section-title reveal">From a check-in to a care plan you can act on.</h2>
@@ -95,7 +129,7 @@
       <li class="step clay reveal"><span class="step-n mono step-b">2</span><h3 class="heading-6">Connect readings</h3><p class="body-6 muted">Your wearable and our anxiety model supply a live reading and verdict. Integrating soon, with a labelled demo stream today.</p></li>
       <li class="step clay reveal"><span class="step-n mono step-c">3</span><h3 class="heading-6">The agent decides</h3><p class="body-6 muted">It picks a care pathway from your screening, and writes a graded plan toward what you've been avoiding.</p></li>
       <li class="step clay reveal"><span class="step-n mono step-d">4</span><h3 class="heading-6">Guided session</h3><p class="body-6 muted">AI guides role play your situation by voice. Readings and the verdict steer each step, and safety rules stay in charge.</p></li>
-      <li class="step clay reveal"><span class="step-n mono step-e">5</span><h3 class="heading-6">Reflect and share</h3><p class="body-6 muted">A few questions afterwards, then a health summary with your GAD-7, readings, next steps and a real world test.</p></li>
+      <li class="step clay reveal"><span class="step-n mono step-e">5</span><h3 class="heading-6">Keep score</h3><p class="body-6 muted">A health summary to keep or share. Your prediction joins your track record, and the agent follows up on what really happened.</p></li>
     </ol>
   </section>
 
@@ -186,11 +220,12 @@
     <p class="title-2 muted section-lead reveal">Each part of this exists somewhere. We didn't find a system combining all of it. That's a claim about our search, not a claim to be first.</p>
     <div class="table-wrap clay reveal">
       <table class="compare">
-        <thead><tr><th scope="col">System</th><th scope="col">Anxiety screening</th><th scope="col">LLM dialogue</th><th scope="col">Body signals change the session</th><th scope="col">Belief change measured</th><th scope="col">Real world missions</th></tr></thead>
+        <thead><tr><th scope="col">System</th><th scope="col">Anxiety screening</th><th scope="col">LLM dialogue</th><th scope="col">Body signals change the session</th><th scope="col">Belief change measured</th><th scope="col">Tracks predictions against outcomes</th></tr></thead>
         <tbody>
           <tr><th scope="row"><a href="https://arxiv.org/html/2506.03520" target="_blank" rel="noopener">VChatter, 2025</a></th><td class="y">Yes</td><td class="y">Yes</td><td>No</td><td>No</td><td>No</td></tr>
           <tr><th scope="row"><a href="https://arxiv.org/abs/2504.14095" target="_blank" rel="noopener">RL exposure, 2025</a></th><td>No</td><td>No</td><td class="y">Yes</td><td>No</td><td>No</td></tr>
           <tr><th scope="row"><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11589380" target="_blank" rel="noopener">VR biofeedback trial, 2024</a></th><td>Not the focus</td><td>No</td><td>No, user adjusts</td><td>No</td><td>No</td></tr>
+          <tr><th scope="row"><a href="https://behavioralexperiment.com/" target="_blank" rel="noopener">Behavioral Experiment app</a></th><td>Not found</td><td>Not found</td><td>No</td><td class="y">Yes</td><td class="y">Yes</td></tr>
           <tr class="us"><th scope="row">Toward</th><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes, in replay</td><td class="y">Yes</td><td class="y">Yes</td></tr>
         </tbody>
       </table>
@@ -208,11 +243,13 @@
         <li>Guided voice sessions, with speech recognition</li>
         <li>Signal logic, on a synthetic sensor recording</li>
         <li>Safety Governor, covered by automated tests</li>
+        <li>Prediction track record, kept on your device</li>
+        <li>Record agent that follows up and replans</li>
       </ul></div>
       <div class="status-card status-next clay reveal"><h3 class="heading-6">Not built yet</h3><ul class="check-list body-6">
         <li>Live connection to our wearable and app</li>
         <li>A validated anxiety detection model</li>
-        <li>Multi day memory and next day re rating</li>
+        <li>Syncing across devices, and reminders beyond your calendar</li>
         <li>Counsellor review and a reporting channel</li>
         <li>Any study showing that this helps</li>
       </ul></div>
@@ -223,13 +260,15 @@
     <span class="eyebrow caption-3 reveal">Questions</span>
     <h2 class="heading-3 section-title reveal">What people ask.</h2>
     <div class="faq reveal">
+      <details class="clay"><summary class="title-2">What if my worry comes true?</summary><p class="body-3 muted">Then that goes in your record too, along with how bad it was and how you coped. Toward never tells you that your anxiety is wrong. If coping has been hard, it suggests talking to a counsellor or someone you trust.</p></details>
+      <details class="clay"><summary class="title-2">Do I need an account?</summary><p class="body-3 muted">No. Your track record is saved in your own browser, on your device, and we keep no copy. That means it won't follow you to another device, and clearing your browser data removes it.</p></details>
       <details class="clay"><summary class="title-2">Is this therapy?</summary><p class="body-3 muted">No. It's a research prototype for anxiety screening and practice support. It doesn't diagnose or treat anything. If you're struggling, please speak to a counsellor or doctor.</p></details>
       <details class="clay"><summary class="title-2">Can it detect anxiety?</summary><p class="body-3 muted">Not as a diagnosis. It tracks change against your own baseline and treats that as an anxiety-like signal. Readings and feelings often disagree. Validating a detection model is the work of our capstone.</p></details>
       <details class="clay"><summary class="title-2">Is the wearable data real?</summary><p class="body-3 muted">In this demo, no. It's a synthetic recording and a simulated verdict, both labelled on screen, while the app and model are being integrated. Your answers, your voice and the agents are live.</p></details>
       <details class="clay"><summary class="title-2">Are the guides real people?</summary><p class="body-3 muted">No. They're AI generated characters, not clinicians, and their words are written live by language models.</p></details>
       <details class="clay"><summary class="title-2">How does this relate to your capstone?</summary><p class="body-3 muted">It shares the same anxiety focus, 4 sensor prototype, multimodal design and GAD-7 grounding. The capstone asks whether we can detect an anxiety-like state. Toward asks what a care agent should do next.</p></details>
       <details class="clay"><summary class="title-2">Isn't facing anxiety risky?</summary><p class="body-3 muted">It can be, which is why there's screening, consent, a stop control and limits in fixed code. It's aimed at mild to moderate anxiety. These rules still need professional review.</p></details>
-      <details class="clay"><summary class="title-2">What happens to what I share?</summary><p class="body-3 muted">Your words and screening band go to Groq to write your plan and summary. We have no database and no accounts. Read the <a href="/privacy">privacy note</a>.</p></details>
+      <details class="clay"><summary class="title-2">What happens to what I share?</summary><p class="body-3 muted">Your words and screening band go to Groq to write your plan and summary, and your record goes there when the agent reviews it. We have no database and no accounts. Read the <a href="/privacy">privacy note</a>.</p></details>
     </div>
   </section>
 
@@ -243,7 +282,7 @@
 <footer class="footer">
   <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span class="title-3">Toward</span></div>
   <p class="caption-5 muted">Entry for Agentic AI Hackathon 2026, theme: Agentic AI for Healthcare &amp; Human Well-being. A student research prototype from Thapar Institute, not a medical device. Guides are AI generated.</p>
-  <nav class="footer-links caption-4" aria-label="Footer"><a href="/privacy">Privacy and terms</a><a href="/checkin">Start a check-in</a></nav>
+  <nav class="footer-links caption-4" aria-label="Footer"><a href="/privacy">Privacy and terms</a><a href="/record">Track record</a><a href="/checkin">Start a check-in</a></nav>
 </footer>
 
 <script type="module" src="/js/site.js"></script>

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your track record | Toward</title>
+<meta name="description" content="Log what your anxiety predicts, check what really happened, and let a care agent decide what to test next. Stored only on your device.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#2B323B">
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/room.css">
+<link rel="stylesheet" href="/css/record.css">
+</head>
+<body class="rec-page">
+<a class="skip" href="#rec-main">Skip to content</a>
+<main class="rec" id="rec-main">
+  <header class="rec-top no-print">
+    <a class="btn btn-white btn-sm" href="/"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Home</a>
+    <div class="rec-top-actions">
+      <button class="btn btn-white btn-sm" id="print-btn" type="button">Save or share as PDF</button>
+      <a class="btn btn-white btn-sm" href="/pitch">Live pitch mode</a>
+      <a class="btn btn-cta btn-sm" href="/checkin">New check-in</a>
+    </div>
+  </header>
+
+  <section class="rec-hero">
+    <div class="rec-hero-head">
+      <span class="caption-3">Your anxiety's track record</span>
+      <span class="rec-tag caption-3" id="sample-tag" hidden></span>
+    </div>
+    <h1 class="heading-2" id="rec-headline">Anxiety makes predictions. Nobody checks them.</h1>
+    <p class="title-1" id="rec-state"></p>
+    <div class="fbars" id="fbars" hidden></div>
+    <dl class="rec-stats" id="rec-stats" hidden></dl>
+    <div class="rec-empty-actions" id="empty-actions">
+      <a class="btn btn-cta btn-lg hero-cta" href="#add">Log your first prediction<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
+      <button class="btn btn-plain hero-plain" id="sample-btn" type="button">See a sample record</button>
+    </div>
+  </section>
+
+  <p class="error" id="rec-error" role="alert" hidden></p>
+  <p class="rec-warn body-6" id="storage-warn" role="status" hidden>This browser isn't allowing storage, so your record will be lost when you close this page.</p>
+
+  <div class="rec-grid">
+    <div class="rec-col">
+      <section class="rec-card clay" id="due-card" hidden>
+        <h2 class="heading-6">Time to check</h2>
+        <p class="body-6 muted">Going back to look is the point of this. Only you know what happened.</p>
+        <div class="stack" id="due-list"></div>
+      </section>
+
+      <section class="rec-card clay" id="add">
+        <h2 class="heading-6">What is your anxiety predicting?</h2>
+        <form class="stack" id="add-form" novalidate>
+          <div class="chips chips-sm" id="add-chips">
+            <button class="chip" type="button">Everyone will think I don't know what I'm talking about.</button>
+            <button class="chip" type="button">I'll freeze and everyone will notice.</button>
+            <button class="chip" type="button">They'll be annoyed if I ask.</button>
+          </div>
+          <label class="field"><span class="visually-hidden">Your worry</span><textarea id="f-worry" rows="2" maxlength="300" placeholder="What does it say will happen?"></textarea></label>
+          <div class="dial-inline">
+            <span class="title-4">How likely does it feel? <output class="mono" id="o-belief">70%</output></span>
+            <input id="f-belief" type="range" min="0" max="100" value="70" aria-label="How likely it feels, in percent">
+          </div>
+          <div class="stack-sm"><span class="title-4">When can you check?</span><div id="f-due" aria-label="When you can check"></div></div>
+          <p class="error" id="add-error" role="alert" hidden></p>
+          <button class="btn btn-cta" id="sharpen-btn" type="submit">Make it checkable<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+          <p class="caption-5 muted">What you write here is sent to Groq, through our server, and our server keeps none of it. Your record stays in this browser. <a href="/privacy">Privacy note</a>.</p>
+        </form>
+        <form class="stack" id="confirm-form" novalidate hidden>
+          <span class="caption-3 eyebrow" id="confirm-source"></span>
+          <label class="field"><span class="title-4">The prediction</span><textarea id="f-pred" rows="2" maxlength="300"></textarea></label>
+          <label class="field"><span class="title-4">How you'll know</span><textarea id="f-check" rows="2" maxlength="240"></textarea></label>
+          <p class="error" id="confirm-error" role="alert" hidden></p>
+          <div class="row-gap">
+            <button class="btn btn-cta" id="save-btn" type="submit">Save prediction</button>
+            <button class="btn btn-white" id="keep-words" type="button">Use my own words</button>
+            <button class="btn btn-plain" id="confirm-back" type="button">Back</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="rec-card clay" id="open-card" hidden>
+        <h2 class="heading-6">Waiting to be checked</h2>
+        <ul class="stack" id="open-list"></ul>
+      </section>
+    </div>
+
+    <aside class="rec-col rec-agent">
+      <section class="rec-card agent-card clay" id="agent-card">
+        <div class="agent-head">
+          <h2 class="heading-6">What the agent decided</h2>
+          <span class="caption-4 muted" id="agent-source"></span>
+        </div>
+        <p class="body-6 muted" id="agent-empty">Log a prediction, and the agent will review your record and decide what comes next.</p>
+        <div class="agent-loading" id="agent-loading" hidden aria-live="polite"><div class="skeleton-title"></div><div class="skeleton-line"></div><p class="body-6 muted">The agent is reading your record.</p></div>
+        <div class="stack" id="agent-body" hidden>
+          <p class="title-3" id="agent-pattern"></p>
+          <div class="next-box">
+            <span class="caption-3" id="agent-next-label">Next step</span>
+            <p class="heading-6" id="agent-next"></p>
+            <p class="body-6 next-target" id="agent-target"></p>
+            <p class="caption-5" id="agent-why"></p>
+            <div class="row-gap">
+              <a class="btn btn-white btn-sm" id="agent-go" href="#"></a>
+              <button class="btn btn-white btn-sm" id="agent-ics" type="button">Add a check to my calendar</button>
+            </div>
+          </div>
+          <p class="support-note body-5" id="agent-support" hidden></p>
+          <details class="trace-box" open>
+            <summary class="title-4">Inside the agent</summary>
+            <div class="legend caption-4"><span><i class="dot dot-code"></i>Fixed code</span><span><i class="dot dot-llm"></i>Chosen by the language model</span></div>
+            <ol class="trace" id="agent-trace"></ol>
+          </details>
+          <button class="btn btn-plain btn-sm" id="agent-again" type="button">Review again</button>
+        </div>
+        <p class="error" id="agent-error" role="alert" hidden></p>
+      </section>
+    </aside>
+  </div>
+
+  <section class="rec-card clay" id="ledger-card" hidden>
+    <h2 class="heading-6">Every prediction, against what happened</h2>
+    <ul class="ledger-rows" id="ledger-rows"></ul>
+  </section>
+
+  <footer class="rec-foot">
+    <p class="body-6"><strong>Some worries do come true, and that doesn't make them your fault.</strong> This record tracks what happened and how you coped. It's a student research prototype, not therapy or diagnosis, and nothing yet shows that it helps. If you're struggling, speak to a counsellor or doctor. If you may be in danger, call your local emergency number. In India, Tele-MANAS is 14416. In the UK and Ireland, Samaritans are 116 123.</p>
+    <div class="row-gap no-print">
+      <button class="btn btn-plain btn-sm" id="clear-sample" type="button" hidden>Remove sample entries</button>
+      <button class="btn btn-plain btn-sm" id="clear-all" type="button" hidden>Delete my whole record</button>
+    </div>
+  </footer>
+</main>
+
+<dialog class="dlg clay" id="confirm-dlg" aria-labelledby="confirm-title">
+  <h2 class="heading-5" id="confirm-title"></h2>
+  <p class="body-3" id="confirm-text"></p>
+  <div class="dlg-actions"><button class="btn btn-white" id="confirm-no" type="button">Keep it</button><button class="btn btn-danger" id="confirm-yes" type="button">Delete</button></div>
+</dialog>
+<dialog class="dlg clay" id="support-dlg" aria-labelledby="support-title">
+  <span class="exit-icon"><i class="icon i24" style="--i:url(/icons/lifebuoy.svg)"></i></span>
+  <h2 class="heading-5" id="support-title">Let's get you the right support</h2>
+  <p class="body-3" id="support-text"></p>
+  <p class="caption-5 muted" id="support-origin"></p>
+  <div class="dlg-actions"><button class="btn btn-cta" id="support-close" type="button">Close</button></div>
+</dialog>
+<script type="module" src="/js/record.js"></script>
+</body>
+</html>

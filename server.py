@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from toward.agents import FAST_MODEL, PLAN_MODEL, AgentTeam, Voice, speech_metrics
 from toward.governor import Action, check_entry, output_is_safe
+from toward import record
 from toward.replay import INJECTABLE
 from toward.session import Session
 from toward.state import BadToken, seal, unseal
@@ -65,6 +66,7 @@ class SetupIn(BaseModel):
     heart_condition: bool
     crisis: bool
     consent: bool
+    history: list[dict] = Field(default_factory=list, max_length=200)
 
 
 class VerdictIn(BaseModel):
@@ -94,6 +96,15 @@ class ScreenIn(BaseModel):
     crisis: bool = False
 
 
+class WorryIn(BaseModel):
+    worry: str = Field(min_length=5, max_length=300)
+
+
+class RecordIn(BaseModel):
+    predictions: list[dict] = Field(default_factory=list, max_length=200)
+    just_checked: str | None = Field(default=None, max_length=24)
+
+
 class TokenIn(BaseModel):
     token: str = Field(max_length=200_000)
 
@@ -114,6 +125,10 @@ class ResumeIn(TokenIn):
 class FinishIn(TokenIn):
     belief_after: int = Field(ge=0, le=100)
     post: PostIn = Field(default_factory=PostIn)
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
 
 
 def _load(token: str) -> Session:
@@ -150,7 +165,10 @@ def create(setup: SetupIn, request: Request) -> dict:
         raise HTTPException(422, "Consent is required before starting.")
     if any(v not in (0, 1, 2, 3) for v in setup.gad_items):
         raise HTTPException(422, "GAD-7 answers must each be from 0 to 3.")
-    session = Session(setup.model_dump(), team)
+    # Only numbers and a theme from the record reach the planner, never the person's earlier words.
+    facts = setup.model_dump(exclude={"history"})
+    facts["record_note"] = record.plan_note(record.parse_predictions(setup.history), _now_ms())
+    session = Session(facts, team)
     session.start()
     return _reply(session)
 
@@ -239,6 +257,33 @@ def speak(body: SpeakIn, request: Request) -> Response:
     if audio is None:
         raise HTTPException(503, "Server voice isn't available.")
     return Response(content=audio, media_type="audio/wav")
+
+
+@app.post("/api/record/stats")
+def record_stats(body: RecordIn, request: Request) -> dict:
+    """Fixed code only: no language model, and nothing is stored."""
+    _limit(request)
+    return record.compute_stats(record.parse_predictions(body.predictions), _now_ms())
+
+
+@app.post("/api/record/check")
+def record_check(body: WorryIn, request: Request) -> dict:
+    """Fixed code only: the final wording of a prediction, checked before it's saved."""
+    _limit(request)
+    return record.safety_scan([body.worry]) or {"status": "ok"}
+
+
+@app.post("/api/record/sharpen")
+def record_sharpen(body: WorryIn, request: Request) -> dict:
+    _limit(request)
+    return record.sharpen(body.worry, team.llm)
+
+
+@app.post("/api/record/review")
+def record_review(body: RecordIn, request: Request) -> dict:
+    _limit(request)
+    client = team.llm.client if team.llm else None
+    return record.review(record.parse_predictions(body.predictions), _now_ms(), client, body.just_checked)
 
 
 # Local development only. On Vercel the CDN serves public/ directly.
