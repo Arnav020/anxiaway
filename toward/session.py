@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import time
 
-from . import governor
+from . import care, governor
 from .agents import MAX_LEVEL, NEXT_STEP_TEXT, TACTIC_LABEL, AgentTeam
 from .governor import Action
 from .replay import stream_from_state
 from .signal_layer import SignalLayer, State
 
-MAX_TURNS = 8
+MAX_TURNS = 6
 ADVANCE_IF_BELIEF_DROPS_BY = 15
 READ_ALOUD = (
     "The river rises in the hills and moves slowly through the valley. Farmers along its banks "
@@ -28,7 +28,7 @@ _POLICY_TEXT = {
 }
 _FIELDS = (
     "setup status level turn elapsed_s limit_events measured_tests ended_early exit_message question plan report "
-    "history turn_log trail evidence last_answer"
+    "history turn_log trail evidence last_answer verdicts post"
 ).split()
 
 
@@ -59,6 +59,8 @@ class Session:
         self.turn_log: list[dict] = []
         self.trail: list[dict] = []
         self.evidence: list[dict] = []
+        self.verdicts: list[dict] = []
+        self.post: dict = {}
         self.pipeline: list[dict] = []
         self.readings: list[dict] = []
 
@@ -94,7 +96,8 @@ class Session:
     def start(self) -> None:
         s = self.setup
         started = time.perf_counter()
-        decision = governor.check_entry(s["gad7"], s["self_harm"], s["heart_condition"], s["crisis"])
+        score = sum(s["gad_items"])
+        decision = governor.check_entry(score, s["self_harm"], s["heart_condition"], s["crisis"])
         if decision.action is Action.CRISIS:
             return self._exit(decision, "crisis")
         if decision.action is Action.REFER:
@@ -110,7 +113,10 @@ class Session:
         self._log("Safety Governor", "Entry checks passed")
 
         started = time.perf_counter()
-        plan, source = self.team.plan({"event": s["event"], "days_until": s["days_until"], "prediction": s["prediction"]})
+        plan, source = self.team.plan({
+            "event": s["event"], "days_until": s["days_until"], "prediction": s["prediction"],
+            "gad_band": care.gad_band(score), "concerns": care.gad_concerns(s["gad_items"]),
+        })
         ms = (time.perf_counter() - started) * 1000
         self.plan = plan.model_dump()
         self.level = plan.steps[0].difficulty
@@ -130,14 +136,14 @@ class Session:
         self._step("signal", "code", text, (time.perf_counter() - started) * 1000)
         self._log("Signal Layer", text)
         self.status = "practice"
-        self._ask(None, State.CALIBRATING, None)
+        self._ask(None, State.CALIBRATING, None, "unavailable")
 
-    def _ask(self, answer: str | None, state: State, behaviour: dict | None) -> None:
+    def _ask(self, answer: str | None, state: State, behaviour: dict | None, verdict_label: str = "unavailable") -> None:
         s = self.setup
         last = self.question["line"] if self.question else None
         started = time.perf_counter()
         direction, source = self.team.direct({
-            "event": s["event"], "prediction": s["prediction"], "state": state.value, "turn": self.turn,
+            "event": s["event"], "prediction": s["prediction"], "state": state.value, "model_verdict": verdict_label, "turn": self.turn,
             "last_question": last, "user_answer": answer, "behaviour": behaviour,
         })
         ms = (time.perf_counter() - started) * 1000
@@ -152,7 +158,7 @@ class Session:
         ms = (time.perf_counter() - started) * 1000
         self._step("scene", "llm", f"Wrote a level {self.level} line", ms, source)
         self._log(f"Scene Agent ({source})", f"Wrote a level {self.level} line for {direction.speaker}", round(ms))
-        self._step("check", "code", "Output check passed: no diagnosis, no scoring, no comment on nerves", 0.1)
+        self._step("check", "code", "Output check: no diagnosis, no scoring, no comment on nerves", 0.1)
 
         if self.status != "practice":
             return  # The user stopped while the line was being written. Stop wins.
@@ -160,7 +166,7 @@ class Session:
                          "tactic_label": TACTIC_LABEL[direction.tactic], "level": self.level}
 
     def answer(self, text: str, source: str = "typed", pause_s: float | None = None,
-               metrics: dict | None = None, inject: str | None = None) -> None:
+               metrics: dict | None = None, inject: str | None = None, external_verdict: dict | None = None) -> None:
         if self.status != "practice":
             raise ValueError("Session isn't accepting answers")
         self.pipeline = []
@@ -187,6 +193,14 @@ class Session:
         self._step("signal", "code", f"State {message.state.value}, sensors: {channels}", (time.perf_counter() - started) * 1000)
         self._log("Signal Layer", f"State {message.state.value}, confidence {message.confidence:.1f}, sensors: {channels}")
 
+        verdict = care.model_verdict(message, external_verdict)
+        self.verdicts.append({**verdict, "turn": self.turn + 1})
+        odds = "" if verdict["probability"] is None else f" ({round(verdict['probability'] * 100)}%)"
+        self._step("model", "model", f"{verdict['source']} verdict: {verdict['label']}{odds}", 0.1)
+        self._log(f"Anxiety model ({verdict['source'].lower()})", f"Anxiety-like state: {verdict['label']}{odds}")
+        # The model can only make the agent more careful. A high verdict blocks any step up.
+        policy_state = State.ENGAGED if verdict["label"] == "high" and message.state is State.LOW else message.state
+
         metrics = metrics or {}
         target = self.plan["target_pause_s"]
         measured = source != "sample" and pause_s is not None
@@ -199,7 +213,8 @@ class Session:
         self.history.append({"q": self.question["line"], "a": text})
         self.turn += 1
         self.turn_log.append({"turn": self.turn, "level": self.level, "state": message.state.value,
-                              "confidence": message.confidence, "active": message.active, "injected": inject})
+                              "confidence": message.confidence, "active": message.active, "injected": inject,
+                              "verdict": verdict["label"], "probability": verdict["probability"]})
 
         if message.state is State.LIMIT:
             self.limit_events += 1
@@ -220,10 +235,10 @@ class Session:
             return self.stop(decision.reason, decision.message)
 
         old_level = self.level
-        self.level = next_level(message.state, self.level)
+        self.level = next_level(policy_state, self.level)
         change = f"Level {old_level} to {self.level}." if self.level != old_level else f"Level stays {self.level}."
         self._step("policy", "code", change, 0.1)
-        self._log("Difficulty policy", f"{_POLICY_TEXT[message.state]} {change}")
+        self._log("Difficulty policy", f"{_POLICY_TEXT[policy_state]} {change}")
         self.last_answer = text
 
         if self.turn >= MAX_TURNS or self.stream.exhausted:
@@ -233,7 +248,7 @@ class Session:
             return
         behaviour = {"measured_pause_s": pause_s if measured else None, "apologies": metrics.get("apologies"),
                      "fillers": metrics.get("fillers"), "words": metrics.get("words")}
-        self._ask(text, message.state, behaviour)
+        self._ask(text, policy_state, behaviour, verdict["label"])
 
     def resume(self, choice: str) -> None:
         if self.status != "paused":
@@ -246,7 +261,7 @@ class Session:
         self.exit_message = ""
         self.signal.restart_after_pause()
         self._log("Safety Governor", "User chose to continue. Level held, and a second limit ends the session.")
-        self._ask(self.last_answer, State.LIMIT, None)
+        self._ask(self.last_answer, State.LIMIT, None, "high")
 
     def stop(self, reason: str = "User pressed stop", message: str = "Session stopped. That's completely fine.") -> None:
         if self.status in ("crisis", "medical", "referred", "complete"):
@@ -257,38 +272,64 @@ class Session:
         self.question = None
         self._log("Safety Governor", f"{reason}: stopped immediately, no persuasion")
 
-    def finish(self, belief_after: int) -> None:
+    def finish(self, belief_after: int, post: dict | None = None) -> None:
         if self.status != "debrief":
-            raise ValueError("Session isn't ready for a debrief")
+            raise ValueError("Session isn't ready for a summary")
+        post = post or {}
+        note = post.get("note") or ""
+        decision_note = governor.check_user_text(note)
+        if decision_note.action is Action.CRISIS:
+            return self._exit(decision_note, "crisis")
+        if decision_note.action is Action.MEDICAL:
+            return self._exit(decision_note, "medical")
         self.pipeline = []
         self.readings = []
+        self.post = post
         before = self.setup["belief_before"]
         change = belief_after - before
+        peak_distress = post.get("peak_distress")
+        distressed = peak_distress is not None and peak_distress >= 8
         if self.limit_events >= governor.MAX_LIMIT_EVENTS or (self.ended_early and change > 0):
             decision = "pause_plan"
-        elif not self.ended_early and -change >= ADVANCE_IF_BELIEF_DROPS_BY:
+        elif not self.ended_early and not distressed and -change >= ADVANCE_IF_BELIEF_DROPS_BY:
             decision = "advance"
         else:
             decision = "repeat"
         direction = "lower" if change < 0 else "higher" if change > 0 else "unchanged"
+        score = sum(self.setup["gad_items"])
+        band = care.gad_band(score)
+        summary = care.verdict_summary(self.verdicts)
         started = time.perf_counter()
         debrief, source = self.team.debrief({
             "event": self.setup["event"], "prediction": self.setup["prediction"], "belief_before": before,
             "belief_after": belief_after, "belief_direction": direction, "ended_early": self.ended_early,
+            "outcome": post.get("outcome"), "gad_band": band, "concerns": care.gad_concerns(self.setup["gad_items"]),
+            "peak_distress_band": None if peak_distress is None else "high" if peak_distress >= 7 else "medium" if peak_distress >= 4 else "low",
+            "symptoms": post.get("symptoms") or [], "note": note, "verdict_peak": summary["peak"], "verdict_source": summary["source"],
         })
         ms = round((time.perf_counter() - started) * 1000)
         self._log("Difficulty policy", f"Plan decision: {decision.replace('_', ' ')} (decided in fixed code)")
-        self._log(f"Session Reporter ({source})", "Wrote the debrief. All numbers come from stored records.", ms)
+        self._log(f"Care summary ({source})", "Wrote the summary. All numbers come from stored records.", ms)
         self.report = {
             "prediction": self.setup["prediction"], "event": self.setup["event"],
             "belief_before": before, "belief_after": belief_after,
             "measured_tests": self.measured_tests, "questions_answered": self.turn,
             "highest_level": max((t["level"] for t in self.turn_log), default=self.level),
             "limit_events": self.limit_events, "ended_early": self.ended_early,
-            "decision": decision, "summary": debrief.summary, "next_step": NEXT_STEP_TEXT[decision],
-            "mission": debrief.mission, "source": source,
+            "decision": decision, "summary": debrief.summary, "insight": debrief.insight,
+            "next_step": NEXT_STEP_TEXT[decision], "mission": debrief.mission, "source": source,
+            "post": post, "verdict": summary, "verdicts": self.verdicts,
+            "gad": self._gad_view(), "pathway": care.PATHWAYS[band],
         }
         self.status = "complete"
+
+    def _gad_view(self) -> dict:
+        items = self.setup["gad_items"]
+        score = sum(items)
+        return {
+            "score": score, "band": care.gad_band(score), "concerns": care.gad_concerns(items),
+            "items": [{"text": care.GAD_ITEMS[i], "value": v, "answer": care.GAD_OPTIONS[v]} for i, v in enumerate(items)],
+        }
 
     def view(self) -> dict:
         return {
@@ -297,5 +338,7 @@ class Session:
             "plan": self.plan, "read_aloud": READ_ALOUD, "report": self.report, "trail": self.trail,
             "turn_log": self.turn_log, "evidence": self.evidence, "belief_before": self.setup["belief_before"],
             "prediction": self.setup["prediction"], "event": self.setup["event"], "pipeline": self.pipeline,
-            "readings": self.readings, "data_label": self.stream.label,
+            "readings": self.readings, "data_label": self.stream.label, "gad": self._gad_view(),
+            "pathway": care.PATHWAYS[care.gad_band(sum(self.setup["gad_items"]))],
+            "verdict": self.verdicts[-1] if self.verdicts else None,
         }

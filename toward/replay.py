@@ -34,7 +34,7 @@ SEGMENTS = {
     "settled": (16, 0.03, True, 0.95),
 }
 INJECTABLE = ("calm", "rising", "high", "limit", "movement", "sensor_loss")
-SCRIPT = ["calm", "steady", "rising", "high", "movement", "sensor_loss", "limit", "settled"]
+SCRIPT = ["calm", "rising", "high", "movement", "limit", "settled"]
 
 
 class SyntheticStream:

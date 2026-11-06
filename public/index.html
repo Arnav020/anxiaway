@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Toward: an AI agent for facing anxiety</title>
-<meta name="description" content="Toward is an agentic AI prototype for healthcare and human well-being. It uses a multimodal wearable to help people practise facing anxiety, step by step, with a live AI panel and fixed safety rules.">
-<meta property="og:title" content="Toward: an AI agent for facing anxiety">
-<meta property="og:description" content="Agentic AI for healthcare and human well-being. Practise facing anxiety with a live panel that adapts to your body, under safety rules no language model can override.">
+<title>Toward: an AI care agent for anxiety</title>
+<meta name="description" content="Toward is an agentic AI prototype for healthcare and human well-being. It combines GAD-7 screening, wearable readings and an anxiety model, decides what care step fits, and guides you through it safely.">
+<meta property="og:title" content="Toward: an AI care agent for anxiety">
+<meta property="og:description" content="Agentic AI for healthcare and human well-being. Screening, wearable readings and guided care steps, under safety rules no language model can override.">
 <meta property="og:type" content="website">
-<meta property="og:image" content="/img/og.png">
+<meta property="og:image" content="/img/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#2F3E52">
+<meta name="theme-color" content="#2B323B">
 <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/css/base.css">
@@ -23,61 +23,59 @@
   <a class="brand" href="/" aria-current="page"><span class="brand-mark" aria-hidden="true"></span><span class="title-2">Toward</span></a>
   <div class="nav-links">
     <a href="#theme">Theme</a>
-    <a href="#problem">Anxiety</a>
-    <a href="#research">Research</a>
     <a href="#how">How it works</a>
+    <a href="#research">Our research</a>
     <a href="#safety">Safety</a>
   </div>
-  <a class="btn btn-cta btn-sm nav-cta" href="/room">Enter the room</a>
+  <a class="btn btn-cta btn-sm nav-cta" href="/checkin">Start a check-in</a>
   <button class="menu-btn" id="menu-btn" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu"><span></span><span></span></button>
 </nav>
 <div class="menu" id="menu" hidden>
   <a href="#theme">Theme</a>
-  <a href="#problem">Anxiety</a>
-  <a href="#research">Research</a>
   <a href="#how">How it works</a>
-  <a href="#agents">Agents</a>
+  <a href="#research">Our research</a>
   <a href="#safety">Safety</a>
   <a href="#faq">FAQ</a>
-  <a class="btn btn-cta btn-lg" href="/room">Enter the room</a>
+  <a class="btn btn-cta btn-lg" href="/checkin">Start a check-in</a>
 </div>
 
 <main id="main">
   <section class="hero" id="hero-stage">
+    <canvas id="hero-trace" aria-hidden="true"></canvas>
     <div class="hero-copy">
       <span class="theme-chip caption-3">Agentic AI for Healthcare &amp; Human Well-being</span>
-      <h1 class="heading-1 hero-title">Don't avoid anxiety.<br>Practise facing it.</h1>
-      <p class="title-1 hero-sub">An AI agent that uses a multimodal wearable to help you step into the situations anxiety makes you avoid, one safe step at a time.</p>
+      <h1 class="heading-1 hero-title">Understand your anxiety.<br>Then act on it.</h1>
+      <p class="title-1 hero-sub">A care agent that combines your GAD-7, wearable readings and an anxiety model, decides which step fits, and guides you through it safely.</p>
       <div class="hero-actions">
-        <a class="btn btn-cta btn-lg" href="/room">Enter the room<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
-        <a class="hero-more body-5" href="#theme">See how it fits</a>
+        <a class="btn btn-cta btn-lg" href="/checkin">Start a check-in<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
+        <a class="hero-more body-5" href="#how">See how it works</a>
       </div>
     </div>
-    <div id="hero-panel" role="group" aria-label="Three AI generated panelists"></div>
+    <div id="hero-panel" role="group" aria-label="Three AI generated guides"></div>
     <div class="hero-caption clay" aria-live="off">
-      <span class="caption-3" id="hero-speaker">Prof Ellis</span>
-      <span class="title-2" id="hero-line">Walk us through the main decision you made, and why you made it.</span>
+      <div class="hero-caption-top"><span class="caption-3" id="hero-speaker">Tom Ellis</span><span class="hero-verdict caption-3" id="hero-verdict" data-v="moderate">Anxiety-like: moderate</span></div>
+      <span class="title-2" id="hero-line">Stay with it for a moment. What is your anxiety telling you right now?</span>
     </div>
   </section>
 
   <section class="section" id="theme">
     <span class="eyebrow caption-3 reveal">Hackathon theme 6</span>
     <h2 class="heading-3 section-title reveal">Agentic AI for Healthcare &amp; Human Well-being.</h2>
-    <p class="title-2 muted section-lead reveal">Toward answers each part of the brief, for one specific problem: anxiety around high stakes speaking, like vivas, interviews and presentations.</p>
+    <p class="title-2 muted section-lead reveal">Toward answers each part of the brief for one condition that affects hundreds of millions of people: anxiety.</p>
     <div class="fit">
-      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/heartbeat.svg)"></i><h3 class="heading-6">Healthcare monitoring</h3><p class="body-6 muted">A four sensor wearable design reads ECG, PPG, skin conductance and motion. This demo replays a synthetic recording of those channels.</p></div>
-      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/lightning.svg)"></i><h3 class="heading-6">Early detection</h3><p class="body-6 muted">It spots rising arousal against your own baseline, as an anxiety-like signal, while rejecting movement and bad readings. It doesn't diagnose.</p></div>
-      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/hand-palm.svg)"></i><h3 class="heading-6">Accessibility</h3><p class="body-6 muted">Voice or text, at any hour, in a browser. Practice is available when counselling isn't, and a referral is offered when it's needed.</p></div>
-      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/path.svg)"></i><h3 class="heading-6">Rehabilitation</h3><p class="body-6 muted">A graded ladder of practice, built back from your real event, follows the step by step structure of exposure based approaches.</p></div>
-      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/target.svg)"></i><h3 class="heading-6">Personalised well-being</h3><p class="body-6 muted">Your baseline, your feared prediction, your ladder and your own real world mission. Nothing is one size fits all.</p></div>
-      <div class="fit-card fit-agent clay reveal"><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><h3 class="heading-6">And truly agentic</h3><p class="body-6">It sets a goal, plans over days, chooses tactics, acts in the room and replans from evidence, inside limits it can't override.</p></div>
+      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/heartbeat.svg)"></i><h3 class="heading-6">Healthcare monitoring</h3><p class="body-6 muted">Our wearable design reads ECG, PPG, skin conductance and motion, and our model turns them into an anxiety-like verdict. The demo uses a labelled simulation until that's integrated.</p></div>
+      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/lightning.svg)"></i><h3 class="heading-6">Early detection</h3><p class="body-6 muted">GAD-7 screening at the door, then rising arousal spotted against your own baseline, while movement and bad readings are rejected. It flags, and never diagnoses.</p></div>
+      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/hand-palm.svg)"></i><h3 class="heading-6">Accessibility</h3><p class="body-6 muted">Voice or text, at any hour, in a browser. Support between appointments, and a clear referral whenever a person is the better answer.</p></div>
+      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/path.svg)"></i><h3 class="heading-6">Rehabilitation</h3><p class="body-6 muted">A graded ladder rebuilds what anxiety took away, step by step, following the structure of exposure based approaches.</p></div>
+      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/target.svg)"></i><h3 class="heading-6">Personalised well-being</h3><p class="body-6 muted">Your screening, your baseline, your feared prediction and your care plan. You leave with a summary to keep or share with a counsellor.</p></div>
+      <div class="fit-card fit-agent clay reveal"><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><h3 class="heading-6">And truly agentic</h3><p class="body-6">It assesses, plans over days, chooses tactics, acts, and replans from evidence, inside safety limits it can't override.</p></div>
     </div>
   </section>
 
   <section class="section" id="problem">
     <span class="eyebrow caption-3 reveal">The anxiety problem</span>
-    <h2 class="heading-3 section-title reveal">Anxiety grows when we avoid. Facing it is hard to arrange.</h2>
-    <p class="title-2 muted section-lead reveal">Anxiety disorders are the most common mental disorders in the world. Avoiding a feared situation keeps anxiety going, and facing it step by step is a core treatment approach. But nobody can summon an interview panel at midnight before a viva.</p>
+    <h2 class="heading-3 section-title reveal">Most people with anxiety never get the care that helps.</h2>
+    <p class="title-2 muted section-lead reveal">Anxiety disorders are the most common mental disorders in the world. Avoidance keeps anxiety going, and step by step practice is a core part of treatment, yet it's hard to access between appointments, or without one.</p>
     <div class="stats">
       <a class="stat clay reveal" href="https://www.who.int/news-room/fact-sheets/detail/anxiety-disorders" target="_blank" rel="noopener"><strong class="heading-2 mono">470M</strong><span class="body-5">people had an anxiety disorder in 2023</span><span class="caption-5 muted">WHO fact sheet</span></a>
       <a class="stat clay stat-b reveal" href="https://researchonline.lse.ac.uk/id/eprint/87584" target="_blank" rel="noopener"><strong class="heading-2 mono">27.6%</strong><span class="body-5">of people with one received any treatment, across 21 countries</span><span class="caption-5">Alonso et al., 2018</span></a>
@@ -87,6 +85,34 @@
 
   <section class="tagline" aria-label="Our core idea">
     <p class="heading-2" id="tagline">Anxiety says the worst will happen.<br>Toward helps you find out what really does.</p>
+  </section>
+
+  <section class="section" id="how">
+    <span class="eyebrow caption-3 reveal">How it works</span>
+    <h2 class="heading-3 section-title reveal">From a check-in to a care plan you can act on.</h2>
+    <ol class="steps">
+      <li class="step clay reveal"><span class="step-n mono">1</span><h3 class="heading-6">Check in</h3><p class="body-6 muted">GAD-7 screening, your situation, and what your anxiety predicts. You see your result straight away.</p></li>
+      <li class="step clay reveal"><span class="step-n mono step-b">2</span><h3 class="heading-6">Connect readings</h3><p class="body-6 muted">Your wearable and our anxiety model supply a live reading and verdict. Integrating soon, with a labelled demo stream today.</p></li>
+      <li class="step clay reveal"><span class="step-n mono step-c">3</span><h3 class="heading-6">The agent decides</h3><p class="body-6 muted">It picks a care pathway from your screening, and writes a graded plan toward what you've been avoiding.</p></li>
+      <li class="step clay reveal"><span class="step-n mono step-d">4</span><h3 class="heading-6">Guided session</h3><p class="body-6 muted">AI guides role play your situation by voice. Readings and the verdict steer each step, and safety rules stay in charge.</p></li>
+      <li class="step clay reveal"><span class="step-n mono step-e">5</span><h3 class="heading-6">Reflect and share</h3><p class="body-6 muted">A few questions afterwards, then a health summary with your GAD-7, readings, next steps and a real world test.</p></li>
+    </ol>
+  </section>
+
+  <section class="section connect" id="connect">
+    <div class="connect-head">
+      <span class="eyebrow caption-3 reveal">Reading and verdict</span>
+      <span class="soon-tag caption-3 reveal">App and model: integrating soon</span>
+    </div>
+    <h2 class="heading-3 section-title reveal">Designed to act on our model's verdict.</h2>
+    <ol class="flow-line reveal">
+      <li class="flow-box clay"><i class="icon i24" style="--i:url(/icons/heartbeat.svg)"></i><strong class="title-3">Wearable</strong><span class="caption-5 muted">ECG, PPG, EDA, IMU</span></li>
+      <li class="flow-box clay"><i class="icon i24" style="--i:url(/icons/waveform.svg)"></i><strong class="title-3">Our app</strong><span class="caption-5 muted">10 second windows</span></li>
+      <li class="flow-box clay"><i class="icon i24" style="--i:url(/icons/brain.svg)"></i><strong class="title-3">Anxiety model</strong><span class="caption-5 muted">Verdict and probability</span></li>
+      <li class="flow-box flow-agent clay"><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><strong class="title-3">Care agent</strong><span class="caption-5">Decides the next step</span></li>
+      <li class="flow-box clay"><i class="icon i24" style="--i:url(/icons/check-circle.svg)"></i><strong class="title-3">Your summary</strong><span class="caption-5 muted">Plan, readings, next steps</span></li>
+    </ol>
+    <p class="title-3 muted section-lead reveal">The agent's API already accepts a verdict from the app, and a high verdict blocks any step up in difficulty. Until our model is validated and connected, the verdict you see is simulated and labelled that way.</p>
   </section>
 
   <section class="section research" id="research">
@@ -107,28 +133,16 @@
     </figure>
   </section>
 
-  <section class="section" id="how">
-    <span class="eyebrow caption-3 reveal">How it works</span>
-    <h2 class="heading-3 section-title reveal">An anxious thought becomes an experiment.</h2>
-    <ol class="steps">
-      <li class="step clay reveal"><span class="step-n mono">1</span><h3 class="heading-6">Say what you predict</h3><p class="body-6 muted">"If I pause to think, the panel will decide I don't know my subject." You rate how likely that feels.</p></li>
-      <li class="step clay reveal"><span class="step-n mono step-b">2</span><h3 class="heading-6">The Planner makes it testable</h3><p class="body-6 muted">It rewrites the fear as something observable, and builds a ladder of steps back from your real deadline.</p></li>
-      <li class="step clay reveal"><span class="step-n mono step-c">3</span><h3 class="heading-6">Face a live panel</h3><p class="body-6 muted">Three AI generated panelists question you by voice. Whisper transcribes your answers and your pause is timed from the mic.</p></li>
-      <li class="step clay reveal"><span class="step-n mono step-d">4</span><h3 class="heading-6">The room adapts</h3><p class="body-6 muted">Anxiety-like arousal from the wearable steers the challenge, without ever telling you that you look anxious. Fixed safety rules stay in charge.</p></li>
-      <li class="step clay reveal"><span class="step-n mono step-e">5</span><h3 class="heading-6">Check the prediction</h3><p class="body-6 muted">You rate it again, and take one small mission into real life, where the actual evidence lives.</p></li>
-    </ol>
-  </section>
-
   <section class="section rule" id="rule">
     <div class="rule-copy">
-      <span class="eyebrow caption-3 reveal">The rule that sets it apart</span>
+      <span class="eyebrow caption-3 reveal">A clinical design choice</span>
       <h2 class="heading-3 section-title reveal">Don't rescue by default.</h2>
-      <p class="title-2 muted reveal">Adaptive systems often back off as soon as stress rises. We think that risks teaching one lesson: escape is how you get through it. Toward holds the level, and eases only at a safety limit, or the moment you say stop.</p>
+      <p class="title-2 muted reveal">Backing off every time anxiety rises risks teaching one lesson: escape is how you get through it. Toward holds the level, and pauses only at a safety limit, or the moment you say stop.</p>
       <div class="toggle-row reveal" role="group" aria-label="Compare approaches">
         <button class="pill is-on" id="rule-toward" type="button" aria-pressed="true">Toward</button>
         <button class="pill" id="rule-typical" type="button" aria-pressed="false">Typical adaptive system</button>
       </div>
-      <p class="body-6" id="rule-text">Arousal rises, and the challenge holds. Stopping stays one tap away the whole time.</p>
+      <p class="body-6" id="rule-text">Anxiety-like arousal rises, and the challenge holds. Stopping stays one tap away the whole time.</p>
     </div>
     <figure class="rule-chart clay reveal">
       <svg id="rule-svg" viewBox="0 0 520 300" role="img" aria-label="Illustration comparing how difficulty responds to rising arousal in each approach."></svg>
@@ -139,47 +153,28 @@
   <section class="section" id="agents">
     <span class="eyebrow caption-3 reveal">Under the hood</span>
     <h2 class="heading-3 section-title reveal">Language models propose. Fixed code decides.</h2>
-    <p class="title-2 muted section-lead reveal">Most agent demos hand everything to the model. In a safety sensitive setting, that's the wrong design. Here's what happens every time you answer, usually in about a second.</p>
+    <p class="title-2 muted section-lead reveal">In healthcare, you can't hand everything to a model. Here's what happens at each step, usually in about a second.</p>
     <div class="arch reveal" id="arch">
-      <button class="node node-code is-on" type="button" data-t="Turns ECG, PPG, skin conductance and motion into a single state label. It calibrates on neutral speech, rejects movement and falls back to PPG if ECG drops. No language model ever reads a raw vital."><i class="icon i20" style="--i:url(/icons/heartbeat.svg)"></i><span class="title-4">Signal Layer</span><span class="caption-5">Fixed code</span></button>
-      <button class="node node-code" type="button" data-t="Checks every answer before a model sees it. Handles crisis language, physical symptoms, safety limits and session limits. It can overrule every agent, and it isn't a language model, so it can't be talked out of it."><i class="icon i20" style="--i:url(/icons/shield-check.svg)"></i><span class="title-4">Safety Governor</span><span class="caption-5">Fixed code</span></button>
+      <button class="node node-code is-on" type="button" data-t="Checks every response before a model sees it. Handles crisis language, physical symptoms, safety limits and session limits. It can overrule every agent, and it isn't a language model, so it can't be talked out of it."><i class="icon i20" style="--i:url(/icons/shield-check.svg)"></i><span class="title-4">Safety Governor</span><span class="caption-5">Fixed code</span></button>
+      <button class="node node-code" type="button" data-t="Turns ECG, PPG, skin conductance and motion into a state. It calibrates on neutral speech, rejects movement and falls back to PPG if ECG drops. No language model ever reads a raw vital."><i class="icon i20" style="--i:url(/icons/heartbeat.svg)"></i><span class="title-4">Signal Layer</span><span class="caption-5">Fixed code</span></button>
+      <button class="node node-model" type="button" data-t="Our multimodal anxiety model will supply the verdict and probability. Today this slot holds a labelled simulation. A high verdict can only make the agent more careful, never push it harder."><i class="icon i20" style="--i:url(/icons/brain.svg)"></i><span class="title-4">Anxiety model</span><span class="caption-5">Integrating soon</span></button>
       <button class="node node-code" type="button" data-t="Only sets difficulty. Low reaction raises the challenge, and nothing else changes it. Models can't raise or lower the level themselves."><i class="icon i20" style="--i:url(/icons/path.svg)"></i><span class="title-4">Difficulty policy</span><span class="caption-5">Fixed code</span></button>
-      <button class="node node-llm" type="button" data-t="Reads your answer and a state label, then picks a tactic and which panelist speaks. Fixed code narrows the choice: at high arousal, harder tactics aren't on the list at all."><i class="icon i20" style="--i:url(/icons/brain.svg)"></i><span class="title-4">Director</span><span class="caption-5">Groq, gpt oss 20b</span></button>
-      <button class="node node-llm" type="button" data-t="Writes the spoken line for that panelist and tactic. It never sees the state label or any body data, so it can't remark on your nerves."><i class="icon i20" style="--i:url(/icons/waveform.svg)"></i><span class="title-4">Scene Agent</span><span class="caption-5">Groq, gpt oss 20b</span></button>
-      <button class="node node-code" type="button" data-t="Rejects any line that diagnoses, scores you or comments on how you seem. A rejected line is replaced by a scripted one. Scripted agents also take over if the network fails."><i class="icon i20" style="--i:url(/icons/check-circle.svg)"></i><span class="title-4">Output check</span><span class="caption-5">Fixed code</span></button>
+      <button class="node node-llm" type="button" data-t="Reads your response and the verdict, then picks a tactic and which guide speaks. Fixed code narrows the choice: at high arousal, harder tactics aren't on the list at all."><i class="icon i20" style="--i:url(/icons/cpu.svg)"></i><span class="title-4">Director</span><span class="caption-5">Groq</span></button>
+      <button class="node node-llm" type="button" data-t="Writes each spoken line. An output check rejects anything that diagnoses, scores you or comments on how you seem. Scripted guides take over if the network fails."><i class="icon i20" style="--i:url(/icons/waveform.svg)"></i><span class="title-4">Guide agent</span><span class="caption-5">Groq</span></button>
     </div>
-    <p class="arch-text clay title-3" id="arch-text" aria-live="polite">Turns ECG, PPG, skin conductance and motion into a single state label. It calibrates on neutral speech, rejects movement and falls back to PPG if ECG drops. No language model ever reads a raw vital.</p>
-    <p class="caption-5 muted reveal">Sessions are also stateless: everything travels in a signed token, so safety counters can't be edited in the browser.</p>
+    <p class="arch-text clay title-3" id="arch-text" aria-live="polite">Checks every response before a model sees it. Handles crisis language, physical symptoms, safety limits and session limits. It can overrule every agent, and it isn't a language model, so it can't be talked out of it.</p>
   </section>
 
   <section class="section" id="safety">
     <span class="eyebrow caption-3 reveal">Safety</span>
     <h2 class="heading-3 section-title reveal">Built to stop, not to persuade.</h2>
     <div class="safety">
-      <div class="safe-card clay reveal"><i class="icon i24" style="--i:url(/icons/lock-key.svg)"></i><h3 class="heading-6">Screened at the door</h3><p class="body-6 muted">GAD-7 at 15 or above, a heart condition or a crisis means no exposure session, and a referral instead.</p></div>
+      <div class="safe-card clay reveal"><i class="icon i24" style="--i:url(/icons/lock-key.svg)"></i><h3 class="heading-6">Screened at the door</h3><p class="body-6 muted">GAD-7 at 15 or above, a heart condition or a crisis means no session, and a referral to real support instead.</p></div>
       <div class="safe-card clay reveal"><i class="icon i24" style="--i:url(/icons/stop-circle.svg)"></i><h3 class="heading-6">Stop always works</h3><p class="body-6 muted">One tap, or say stop. It ends immediately with no persuasion, and even rate limits can't block it.</p></div>
-      <div class="safe-card clay reveal"><i class="icon i24" style="--i:url(/icons/lifebuoy.svg)"></i><h3 class="heading-6">Crisis means fixed words</h3><p class="body-6 muted">Self harm language ends the scene with support details written by people. That text is never generated, and never reaches a model.</p></div>
-      <div class="safe-card clay reveal"><i class="icon i24" style="--i:url(/icons/pause-circle.svg)"></i><h3 class="heading-6">Limits pause the room</h3><p class="body-6 muted">At the safety limit the panel leans back, the lights lift and you choose what happens next. A second limit ends the session.</p></div>
+      <div class="safe-card clay reveal"><i class="icon i24" style="--i:url(/icons/lifebuoy.svg)"></i><h3 class="heading-6">Crisis means fixed words</h3><p class="body-6 muted">Self harm language ends the session with support details written by people. That text is never generated, and never reaches a model.</p></div>
+      <div class="safe-card clay reveal"><i class="icon i24" style="--i:url(/icons/pause-circle.svg)"></i><h3 class="heading-6">Limits pause everything</h3><p class="body-6 muted">At the safety limit the session pauses, you can breathe for a while, and you choose what happens next. A second limit ends it.</p></div>
     </div>
     <p class="caption-5 muted reveal">Rules and thresholds are starting design values. They haven't been clinically validated and still need review by a counsellor.</p>
-  </section>
-
-  <section class="section" id="compare">
-    <span class="eyebrow caption-3 reveal">Prior work</span>
-    <h2 class="heading-3 section-title reveal">We stand on real research.</h2>
-    <p class="title-2 muted section-lead reveal">Every part of this exists somewhere. We didn't find a system combining all of it. That's a claim about our search, not a claim to be first.</p>
-    <div class="table-wrap clay reveal">
-      <table class="compare">
-        <thead><tr><th scope="col">System</th><th scope="col">LLM dialogue</th><th scope="col">Body signals change exposure</th><th scope="col">Multi day plan</th><th scope="col">Belief change measured</th><th scope="col">Real world missions</th></tr></thead>
-        <tbody>
-          <tr><th scope="row"><a href="https://arxiv.org/html/2506.03520" target="_blank" rel="noopener">VChatter, 2025</a></th><td class="y">Yes</td><td>No</td><td class="y">Yes</td><td>No</td><td>No</td></tr>
-          <tr><th scope="row"><a href="https://arxiv.org/abs/2504.14095" target="_blank" rel="noopener">RL exposure, 2025</a></th><td>No</td><td class="y">Yes</td><td>No</td><td>No</td><td>No</td></tr>
-          <tr><th scope="row"><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11589380" target="_blank" rel="noopener">VR biofeedback trial, 2024</a></th><td>No</td><td>No, user adjusts</td><td>Fixed</td><td>No</td><td>No</td></tr>
-          <tr class="us"><th scope="row">Toward</th><td class="y">Yes</td><td class="y">Yes, in replay</td><td class="y">Planned ladder</td><td class="y">Yes</td><td class="y">Yes</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="caption-5 muted reveal">Based on the papers as we read them. Whether body adaptive exposure helps people is an open question, and one this project would test.</p>
   </section>
 
   <section class="section" id="status">
@@ -187,14 +182,14 @@
     <h2 class="heading-3 section-title reveal">What's real today.</h2>
     <div class="status">
       <div class="status-card clay reveal"><h3 class="heading-6">Working now</h3><ul class="check-list body-6">
-        <li>Live AI panel that reacts to its own voice audio</li>
+        <li>GAD-7 screening, care pathway and health summary</li>
         <li>Multi agent loop on Groq, with scripted fallback</li>
-        <li>Speech recognition and measured pauses</li>
+        <li>Guided voice sessions, with speech recognition</li>
         <li>Signal logic, on a synthetic sensor recording</li>
         <li>Safety Governor, covered by automated tests</li>
       </ul></div>
       <div class="status-card status-next clay reveal"><h3 class="heading-6">Not built yet</h3><ul class="check-list body-6">
-        <li>Live connection from our wearable to this demo</li>
+        <li>Live connection to our wearable and app</li>
         <li>A validated anxiety detection model</li>
         <li>Multi day memory and next day re rating</li>
         <li>Counsellor review and a reporting channel</li>
@@ -207,28 +202,27 @@
     <span class="eyebrow caption-3 reveal">Questions</span>
     <h2 class="heading-3 section-title reveal">What people ask.</h2>
     <div class="faq reveal">
-      <details class="clay"><summary class="title-2">Is this therapy?</summary><p class="body-3 muted">No. It's a research prototype for practising feared speaking situations. It doesn't diagnose or treat anything. If you're struggling, please speak to a counsellor or doctor.</p></details>
-      <details class="clay"><summary class="title-2">Can it detect anxiety?</summary><p class="body-3 muted">Not as a diagnosis. It tracks change against your own neutral baseline and treats that as an anxiety-like signal. Arousal and anxiety aren't the same, and research shows they often disagree. Validating a detection model is the work of our capstone.</p></details>
-      <details class="clay"><summary class="title-2">Is the body data in this demo real?</summary><p class="body-3 muted">No, it's a synthetic recording, labelled on screen, so judges can see how the logic behaves and even inject events. Your voice, your pause timing and the agents are live.</p></details>
-      <details class="clay"><summary class="title-2">Are the panelists real people?</summary><p class="body-3 muted">No. They're AI generated characters, and their questions are written live by language models.</p></details>
-      <details class="clay"><summary class="title-2">How is this related to your capstone?</summary><p class="body-3 muted">It shares the same anxiety focus, 4 sensor prototype, multimodal design and GAD-7 grounding. The capstone asks whether we can detect an anxiety-like state. Toward asks what an agent should do next.</p></details>
-      <details class="clay"><summary class="title-2">Do I need the wearable?</summary><p class="body-3 muted">Not for this demo. The design treats sensors as optional, so missing channels lower confidence rather than breaking the session.</p></details>
-      <details class="clay"><summary class="title-2">Isn't provoking anxiety dangerous?</summary><p class="body-3 muted">It can be, which is why there's screening, consent, a stop control and limits in fixed code. It's aimed at mild to moderate performance anxiety. These rules still need professional review.</p></details>
-      <details class="clay"><summary class="title-2">What happens to what I say?</summary><p class="body-3 muted">Your text and audio go to Groq to generate the session. We have no database and no accounts. Read the <a href="/privacy">privacy note</a> for details.</p></details>
+      <details class="clay"><summary class="title-2">Is this therapy?</summary><p class="body-3 muted">No. It's a research prototype for anxiety screening and practice support. It doesn't diagnose or treat anything. If you're struggling, please speak to a counsellor or doctor.</p></details>
+      <details class="clay"><summary class="title-2">Can it detect anxiety?</summary><p class="body-3 muted">Not as a diagnosis. It tracks change against your own baseline and treats that as an anxiety-like signal. Readings and feelings often disagree. Validating a detection model is the work of our capstone.</p></details>
+      <details class="clay"><summary class="title-2">Is the wearable data real?</summary><p class="body-3 muted">In this demo, no. It's a synthetic recording and a simulated verdict, both labelled on screen, while the app and model are being integrated. Your answers, your voice and the agents are live.</p></details>
+      <details class="clay"><summary class="title-2">Are the guides real people?</summary><p class="body-3 muted">No. They're AI generated characters, not clinicians, and their words are written live by language models.</p></details>
+      <details class="clay"><summary class="title-2">How does this relate to your capstone?</summary><p class="body-3 muted">It shares the same anxiety focus, 4 sensor prototype, multimodal design and GAD-7 grounding. The capstone asks whether we can detect an anxiety-like state. Toward asks what a care agent should do next.</p></details>
+      <details class="clay"><summary class="title-2">Isn't facing anxiety risky?</summary><p class="body-3 muted">It can be, which is why there's screening, consent, a stop control and limits in fixed code. It's aimed at mild to moderate anxiety. These rules still need professional review.</p></details>
+      <details class="clay"><summary class="title-2">What happens to what I share?</summary><p class="body-3 muted">Your words and screening band go to Groq to write your plan and summary. We have no database and no accounts. Read the <a href="/privacy">privacy note</a>.</p></details>
     </div>
   </section>
 
   <section class="final clay">
-    <h2 class="heading-2">Three people are waiting.<br>See what anxiety got wrong.</h2>
-    <a class="btn btn-cta btn-lg" href="/room">Enter the room<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
-    <p class="caption-4">A research prototype, not therapy or diagnosis. Allow your mic for the full experience, or type.</p>
+    <h2 class="heading-2">Five minutes to understand<br>where your anxiety stands.</h2>
+    <a class="btn btn-cta btn-lg" href="/checkin">Start a check-in<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
+    <p class="caption-4">A research prototype, not therapy or diagnosis.</p>
   </section>
 </main>
 
 <footer class="footer">
   <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span class="title-3">Toward</span></div>
-  <p class="caption-5 muted">Entry for Agentic AI Hackathon 2026, theme: Agentic AI for Healthcare &amp; Human Well-being. A student research prototype from Thapar Institute, not a medical device. Panelists are AI generated.</p>
-  <nav class="footer-links caption-4" aria-label="Footer"><a href="/privacy">Privacy and terms</a><a href="/room">Enter the room</a></nav>
+  <p class="caption-5 muted">Entry for Agentic AI Hackathon 2026, theme: Agentic AI for Healthcare &amp; Human Well-being. A student research prototype from Thapar Institute, not a medical device. Guides are AI generated.</p>
+  <nav class="footer-links caption-4" aria-label="Footer"><a href="/privacy">Privacy and terms</a><a href="/checkin">Start a check-in</a></nav>
 </footer>
 
 <script type="module" src="/js/site.js"></script>

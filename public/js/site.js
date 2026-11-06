@@ -28,8 +28,7 @@ document.querySelectorAll(".reveal").forEach((el) => revealer.observe(el));
 
 /* Tagline: words light up one at a time */
 const tagline = $("tagline");
-const parts = tagline.innerHTML.split("<br>");
-tagline.innerHTML = parts
+tagline.innerHTML = tagline.innerHTML.split("<br>")
   .map((part) => part.trim().split(/\s+/).map((w) => `<span class="w">${w}</span>`).join(" "))
   .join("<br>");
 const words = [...tagline.querySelectorAll(".w")];
@@ -49,7 +48,7 @@ else {
   paint();
 }
 
-/* The rule chart: same arousal, different response */
+/* The rule chart */
 const svg = $("rule-svg");
 const X0 = 48, X1 = 500, Y0 = 256, Y1 = 24;
 const px = (x) => X0 + (x / 100) * (X1 - X0);
@@ -79,16 +78,16 @@ svg.innerHTML = `
   <path d="${smooth(arousal)}" fill="none" stroke="#A8553D" stroke-width="3" stroke-linecap="round"/>
   <path id="rule-line" d="${path(lines.toward)}" fill="none" stroke="#2F3E52" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
 const copy = {
-  toward: "Arousal rises, and the challenge holds. Stopping stays one tap away the whole time.",
-  typical: "Arousal rises, so the system eases off. The person gets through by the challenge shrinking.",
+  toward: "Anxiety-like arousal rises, and the challenge holds. Stopping stays one tap away the whole time.",
+  typical: "Arousal rises, so the system eases off. The person gets through because the challenge shrinks.",
 };
 function setRule(name) {
   $("rule-line").setAttribute("d", path(lines[name]));
   $("rule-text").textContent = copy[name];
-  $("rule-toward").classList.toggle("is-on", name === "toward");
-  $("rule-typical").classList.toggle("is-on", name === "typical");
-  $("rule-toward").setAttribute("aria-pressed", String(name === "toward"));
-  $("rule-typical").setAttribute("aria-pressed", String(name === "typical"));
+  for (const key of ["toward", "typical"]) {
+    $(`rule-${key}`).classList.toggle("is-on", key === name);
+    $(`rule-${key}`).setAttribute("aria-pressed", String(key === name));
+  }
 }
 $("rule-toward").addEventListener("click", () => setRule("toward"));
 $("rule-typical").addEventListener("click", () => setRule("typical"));
@@ -105,33 +104,80 @@ nodes.forEach((node) => {
   node.addEventListener("pointerenter", pick);
 });
 
-/* The hero panel */
-const LINES = [
-  ["Prof Ellis", "Walk us through the main decision you made, and why you made it.", "follow_up", 2],
-  ["Ms Kim", "What is the weakest part of your work? Be specific.", "probe_assumption", 3],
-  ["Dr Rao", "I'm not convinced yet. How would you defend that assumption?", "polite_challenge", 4],
-  ["Ms Kim", "Take your time.", "hold_silence", 4],
-];
+/* Hero: live looking body signals drifting behind the guides */
+const trace = $("hero-trace");
 const stage = $("hero-stage");
+if (trace) {
+  const g = trace.getContext("2d");
+  const ecg = (x) => {
+    const p = ((x % 240) + 240) % 240;
+    if (p < 8) return -6 * Math.sin((p / 8) * Math.PI);
+    if (p > 20 && p < 26) return 8 * ((p - 20) / 6);
+    if (p >= 26 && p < 31) return 8 - 46 * ((p - 26) / 5);
+    if (p >= 31 && p < 37) return -38 + 54 * ((p - 31) / 6);
+    if (p >= 37 && p < 43) return 16 - 16 * ((p - 37) / 6);
+    if (p > 70 && p < 100) return -9 * Math.sin(((p - 70) / 30) * Math.PI);
+    return 0;
+  };
+  const size = () => {
+    const box = stage.getBoundingClientRect();
+    const dpr = Math.min(devicePixelRatio, 2);
+    trace.width = box.width * dpr;
+    trace.height = box.height * dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  size();
+  addEventListener("resize", size);
+  const draw = (t) => {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    g.clearRect(0, 0, w, h);
+    const shift = t * 0.05;
+    const lines_ = [
+      { y: h * 0.17, color: "rgba(228,220,203,.10)", f: (x) => ecg(x + shift) * 0.9 },
+      { y: h * 0.33, color: "rgba(163,177,165,.10)", f: (x) => Math.sin((x + shift) / 34) * 12 + Math.sin((x + shift) / 13) * 3 },
+      { y: h * 0.47, color: "rgba(211,160,111,.09)", f: (x) => Math.sin((x + shift * 0.4) / 120) * 16 + Math.sin((x + shift * 0.4) / 37) * 4 },
+    ];
+    g.lineWidth = 1.5;
+    for (const line of lines_) {
+      g.strokeStyle = line.color;
+      g.beginPath();
+      for (let x = 0; x <= w; x += 2) {
+        const y = line.y + line.f(x);
+        if (x) g.lineTo(x, y); else g.moveTo(x, y);
+      }
+      g.stroke();
+    }
+    if (!reduced) requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+}
+
+/* The guides */
+const LINES = [
+  ["Tom Ellis", "Stay with it for a moment. What is your anxiety telling you right now?", "moderate", 2],
+  ["Mina Kim", "What do you expect will happen next?", "moderate", 3],
+  ["Asha Rao", "Suppose it starts to happen. What is your next step?", "high", 3],
+];
 {
   const room = new Panel($("hero-panel"));
-  const copy = stage.querySelector(".hero-copy");
-  const fit = () => room.setLayout({ top: copy.getBoundingClientRect().bottom - stage.getBoundingClientRect().top + 16, bottom: stage.querySelector(".hero-caption").offsetHeight + 32 });
+  const copyEl = stage.querySelector(".hero-copy");
+  const caption = stage.querySelector(".hero-caption");
+  const fit = () => room.setLayout({ top: copyEl.getBoundingClientRect().bottom - stage.getBoundingClientRect().top + 16, bottom: caption.offsetHeight + 32 });
   fit();
   addEventListener("resize", fit);
   document.fonts?.ready.then(fit);
   let index = 0;
-  const caption = stage.querySelector(".hero-caption");
   const play = () => {
-    const [who, line, tactic, level] = LINES[index % LINES.length];
+    const [who, line, verdict] = LINES[index % LINES.length];
     index += 1;
     caption.style.opacity = 0;
     setTimeout(() => {
       $("hero-speaker").textContent = who;
       $("hero-line").textContent = line;
+      $("hero-verdict").textContent = `Anxiety-like: ${verdict}`;
+      $("hero-verdict").dataset.v = verdict;
       caption.style.opacity = 1;
       room.setSpeaker(who);
-      room.setTactic(tactic);
     }, 300);
     const start = performance.now();
     const talk = line.length * 62;
@@ -148,5 +194,5 @@ const stage = $("hero-stage");
     };
     mouth();
   };
-  setTimeout(play, 1200);
+  setTimeout(play, 1000);
 }

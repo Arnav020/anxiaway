@@ -13,9 +13,9 @@ from toward.session import MAX_TURNS, Session, next_level
 from toward.signal_layer import Sample, SignalLayer, State
 from toward.state import BadToken, seal, unseal
 
-EXPECTED_STATES = ["LOW", "LOW", "ENGAGED", "HIGH", "UNKNOWN", "ENGAGED", "LIMIT", "ENGAGED"]
+EXPECTED_STATES = ["LOW", "ENGAGED", "HIGH", "UNKNOWN", "LIMIT", "ENGAGED"]
 SETUP = dict(event="Viva", days_until=6, prediction="If I pause, they'll think I'm incompetent",
-             belief_before=80, gad7=9, self_harm=False, heart_condition=False, crisis=False, consent=True)
+             belief_before=80, gad_items=[1, 1, 2, 1, 0, 1, 1], self_harm=False, heart_condition=False, crisis=False, consent=True)
 
 
 def scripted_team():
@@ -177,7 +177,7 @@ def test_full_session_follows_the_policy():
     levels = [t["level"] for t in session.turn_log]
     assert states == EXPECTED_STATES
     assert levels == sorted(levels), "difficulty must never fall"
-    assert levels[3] == levels[4], "HIGH must hold the level"
+    assert levels[2] == levels[3], "HIGH must hold the level"
     assert session.status == "debrief"
     session.finish(55)
     assert session.report["belief_before"] == 80 and session.report["belief_after"] == 55
@@ -273,7 +273,7 @@ def test_entry_refusal_never_reaches_the_planner():
     team = scripted_team()
     called = []
     team.plan = lambda facts: called.append(facts)
-    session = Session({**SETUP, "gad7": 18}, team)
+    session = Session({**SETUP, "gad_items": [3, 3, 3, 3, 2, 2, 2]}, team)
     session.start()
     assert session.status == "referred" and not called
 
@@ -312,7 +312,7 @@ def test_no_vitals_or_scores_reach_the_llm():
     everything = [f for calls in seen.values() for f in calls]
     assert everything
     keys = {k.lower() for facts in everything for k in facts}
-    for banned in ("hr", "hr_delta", "bpm", "eda", "motion", "confidence", "gad7"):
+    for banned in ("hr", "hr_delta", "bpm", "eda", "motion", "confidence", "gad_items", "gad7"):
         assert banned not in keys
     blob = json.dumps(everything)
     assert "78." not in blob, "heart values must never appear"
@@ -321,7 +321,7 @@ def test_no_vitals_or_scores_reach_the_llm():
 
 
 def test_director_cannot_pick_a_forbidden_tactic():
-    payload = {"tactic": "polite_challenge", "speaker": "Dr Rao", "reason": "Push harder."}
+    payload = {"tactic": "polite_challenge", "speaker": "Asha Rao", "reason": "Push harder."}
     team = AgentTeam(llm=GroqAgents(client=fake_client(json.dumps(payload))))
     direction, source = team.direct({"event": "Viva", "prediction": "p", "state": "HIGH", "turn": 1,
                                      "last_question": None, "user_answer": "a", "behaviour": None})
@@ -329,15 +329,15 @@ def test_director_cannot_pick_a_forbidden_tactic():
 
 
 def test_director_can_choose_within_limits():
-    payload = {"tactic": "hold_silence", "speaker": "Ms Kim", "reason": "The fear involves silence."}
+    payload = {"tactic": "hold_silence", "speaker": "Mina Kim", "reason": "The fear involves silence."}
     team = AgentTeam(llm=GroqAgents(client=fake_client(json.dumps(payload))))
     direction, source = team.direct({"event": "Viva", "prediction": "p", "state": "HIGH", "turn": 1,
                                      "last_question": None, "user_answer": "a", "behaviour": None})
-    assert source == "Groq" and direction.speaker == "Ms Kim"
+    assert source == "Groq" and direction.speaker == "Mina Kim"
 
 
 # Fallback and LLM boundaries
-SCENE_FACTS = {"event": "Viva", "difficulty": 2, "tactic": "follow_up", "speaker": "Dr Rao", "turn": 1,
+SCENE_FACTS = {"event": "Viva", "difficulty": 2, "tactic": "follow_up", "speaker": "Asha Rao", "turn": 1,
                "last_question": None, "user_answer": None}
 
 
@@ -378,7 +378,7 @@ def test_malformed_llm_output_falls_back():
 
 
 def test_debrief_with_invented_numbers_is_rejected():
-    payload = {"summary": "Your belief fell by 40 percent.", "mission": "Ask one question."}
+    payload = {"summary": "Your belief fell by 40 percent.", "insight": "i", "mission": "Ask one question."}
     team = AgentTeam(llm=GroqAgents(client=fake_client(json.dumps(payload))))
     facts = dict(event="Viva", prediction="p", belief_before=80, belief_after=40, belief_direction="lower", ended_early=False)
     debrief, source = team.debrief(facts)
@@ -426,7 +426,8 @@ def test_speech_metrics_measure_without_judging():
 # Replay
 def test_csv_round_trip_keeps_missing_sensors(tmp_path):
     path = tmp_path / "replay.csv"
-    samples = generate()
+    stream = SyntheticStream()
+    samples = stream.calibration() + stream.next_turn("sensor_loss")
     write_csv(samples, path)
     assert load_csv(path) == samples
     assert any(s.ecg_hr is None for s in samples)
@@ -493,6 +494,59 @@ def test_unknown_page_is_a_404_even_without_public_files(monkeypatch, tmp_path):
     assert response.status_code == 404 and "can't find" in response.text
 
 
-def test_speak_refuses_text_the_output_check_rejects(monkeypatch):
+def test_gad_answers_are_validated_and_used(monkeypatch):
     http, _ = client(monkeypatch)
-    assert http.post("/api/speak", json={"text": "You seem anxious.", "member": "Dr Rao"}).status_code == 422
+    assert http.post("/api/session", json={**SETUP, "gad_items": [9, 0, 0, 0, 0, 0, 0]}).status_code == 422
+    view = http.post("/api/session", json=SETUP).json()
+    assert view["gad"]["score"] == 7 and view["gad"]["band"] == "Mild"
+    assert view["gad"]["items"][2]["answer"] == "More than half the days"
+    assert "Worrying too much" in view["gad"]["concerns"][0]
+
+
+def test_finish_keeps_post_session_answers(monkeypatch):
+    http, _ = client(monkeypatch)
+    view = http.post("/api/session", json=SETUP).json()
+    view = http.post("/api/stop", json={"token": view["token"]}).json()
+    post = {"peak_distress": 6, "symptoms": ["Racing heart"], "outcome": "partly", "note": "Calmer than I expected."}
+    view = http.post("/api/finish", json={"token": view["token"], "belief_after": 60, "post": post}).json()
+    assert view["report"]["post"]["symptoms"] == ["Racing heart"] and view["report"]["gad"]["band"] == "Mild"
+    assert view["report"]["pathway"]["name"] == "Guided practice" and view["report"]["insight"]
+
+
+# Care logic
+@pytest.mark.parametrize("score,band", [(0, "Minimal"), (4, "Minimal"), (5, "Mild"), (9, "Mild"), (10, "Moderate"), (14, "Moderate"), (15, "Severe")])
+def test_gad_bands(score, band):
+    from toward.care import gad_band
+    assert gad_band(score) == band
+
+
+def test_verdict_is_labelled_simulated_until_the_app_connects():
+    session = started()
+    session.calibrate()
+    session.answer("An answer.", "sample")
+    assert session.verdicts[-1]["source"] == "Simulated"
+    session.answer("An answer.", "sample", external_verdict={"label": "moderate", "probability": 0.6})
+    assert session.verdicts[-1]["source"] == "Model" and session.verdicts[-1]["label"] == "moderate"
+
+
+def test_a_high_model_verdict_blocks_any_step_up():
+    session = started()
+    session.calibrate()
+    level = session.level
+    session.answer("An answer.", "sample", inject="calm", external_verdict={"label": "high", "probability": 0.8})
+    assert session.turn_log[-1]["state"] == "LOW" and session.level == level
+
+
+def test_crisis_text_in_the_post_session_note_gets_fixed_support():
+    session = started()
+    session.calibrate()
+    session.stop()
+    session.finish(70, {"note": "I want to end my life"})
+    assert session.status == "crisis" and session.report is None
+
+
+def test_high_reported_distress_stops_the_plan_advancing():
+    session = started()
+    run_all(session)
+    session.finish(40, {"peak_distress": 9})
+    assert session.report["decision"] == "repeat"

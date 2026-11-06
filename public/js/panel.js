@@ -1,9 +1,9 @@
-// The interview panel: three AI generated portraits that respond to the live session.
+// The guides: three AI generated portraits that respond to the live session.
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const PEOPLE = [
-  { name: "Dr Rao", role: "Clinician", src: "/img/rao.jpg", alt: "Dr Rao, a woman in her forties in a charcoal blazer, listening calmly." },
-  { name: "Prof Ellis", role: "Professor", src: "/img/ellis.jpg", alt: "Prof Ellis, a man in his sixties with silver hair and thin glasses, listening calmly." },
-  { name: "Ms Kim", role: "Hiring manager", src: "/img/kim.jpg", alt: "Ms Kim, a woman in her thirties with a black bob, listening calmly." },
+  { name: "Asha Rao", role: "AI guide", src: "/img/rao.jpg", alt: "Asha Rao, an AI generated guide: a woman in her forties in a charcoal blazer, listening calmly." },
+  { name: "Tom Ellis", role: "AI guide", src: "/img/ellis.jpg", alt: "Tom Ellis, an AI generated guide: a man in his sixties with silver hair and thin glasses, listening calmly." },
+  { name: "Mina Kim", role: "AI guide", src: "/img/kim.jpg", alt: "Mina Kim, an AI generated guide: a woman in her thirties with a black bob, listening calmly." },
 ];
 const damp = (a, b, k) => a + (b - a) * k;
 

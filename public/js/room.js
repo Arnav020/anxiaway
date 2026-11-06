@@ -1,9 +1,16 @@
 import { Panel } from "/js/panel.js";
+import { Voices } from "/js/voice.js";
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const setIcon = (el, name) => el.style.setProperty("--i", `url(/icons/${name}.svg)`);
+const el = (tag, className, text) => {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
 
 const GAD_ITEMS = [
   "Feeling nervous, anxious or on edge",
@@ -15,33 +22,33 @@ const GAD_ITEMS = [
   "Feeling afraid, as if something awful might happen",
 ];
 const GAD_OPTIONS = ["Not at all", "Several days", "More than half the days", "Nearly every day"];
+const SYMPTOMS = ["Racing heart", "Sweating", "Shaky", "Short of breath", "Tense muscles", "Butterflies", "Dry mouth", "Mind going blank", "None of these"];
 const STATE_TEXT = {
-  CALIBRATING: ["Baseline", "The first answer starts the trace."],
-  LOW: ["Low", "Little change from baseline. The next question gets harder."],
-  ENGAGED: ["Engaged", "Clear change from baseline. The level holds and the test continues."],
+  CALIBRATING: ["Baseline", "The first response starts the trace."],
+  LOW: ["Low", "Little change from baseline. The next step gets a little harder."],
+  ENGAGED: ["Engaged", "Clear change from baseline. The level holds and the session continues."],
   HIGH: ["High", "The level holds. High arousal alone doesn't lower difficulty, and stopping stays one tap away."],
-  LIMIT: ["Limit", "Safety limit reached. The Governor paused the room."],
-  UNKNOWN: ["Unknown", "Movement or a poor signal, so body data isn't trusted or used."],
+  LIMIT: ["Limit", "Safety limit reached. The Governor paused the session."],
+  UNKNOWN: ["Unknown", "Movement or a poor signal, so this reading isn't trusted or used."],
 };
 const NODE_NAMES = {
-  governor: "Safety Governor", signal: "Signal Layer", policy: "Difficulty policy",
-  director: "Director", scene: "Scene Agent", check: "Output check", planner: "Ladder Planner",
+  governor: "Safety Governor", signal: "Signal Layer", model: "Anxiety model", policy: "Difficulty policy",
+  director: "Director", scene: "Guide agent", check: "Output check", planner: "Care planner",
 };
 const INJECT_LABELS = { auto: "Scripted", calm: "Calm", rising: "Rising", high: "High", limit: "Safety limit", movement: "Movement", sensor_loss: "ECG lost" };
 const SAMPLE_ANSWERS = [
-  "It looks at how well students recover after a stressful exam, using sleep and mood data.",
-  "I chose a smaller sample so I could follow each person for longer.",
-  "The weakest part is the sample size. I would recruit from more than one college.",
-  "The main assumption is that sleep drives mood. If that's wrong, the direction reverses.",
-  "That's a fair challenge. Let me think. My data can't separate those two effects yet.",
-  "The established approach uses surveys only. Mine adds daily measures, which is what is new.",
-  "I don't know that detail right now, but here is how I would check it.",
-  "I would defend it by showing the pilot results and being clear about their limits.",
+  "I notice my chest feels tight and I want to find a reason to leave.",
+  "I expect everyone to notice that I don't know what to say.",
+  "My anxiety is telling me this will go badly and that I should get out now.",
+  "I would take a breath, stay where I am and say what I actually think.",
+  "I suppose I would just carry on, even if it isn't perfect.",
+  "Maybe it would mean this isn't as dangerous as it feels.",
 ];
-const SAMPLE_PROFILE = { event: "Final year project viva", days: 6, pred: "If I pause to think, the panel will decide I don't know my subject.", belief: 80, gad: [1, 1, 1, 1, 0, 1, 1], harm: false, heart: false, crisis: false };
+const SAMPLE_PROFILE = { event: "Speaking up in class or meetings", days: 7, pred: "If I speak up, people will think I don't know what I'm talking about.", belief: 80, gad: [2, 1, 2, 1, 0, 1, 2] };
 
-/* ---------- App state ---------- */
-const form = { gad: Array(7).fill(null), self_harm: null, heart_condition: null, crisis: null, consent: false };
+/* ---------- State ---------- */
+const form = { gad: Array(7).fill(null), self_harm: null, heart_condition: null, crisis: null, consent: false, outcome: null, symptoms: new Set() };
+const voices = new Voices();
 let session = null;
 let token = null;
 let room = null;
@@ -51,10 +58,11 @@ let injection = "auto";
 let soundOn = true;
 let inFlight = false;
 let stopToken = 0;
+let speakToken = 0;
 let answerOpenAt = null;
 let firstInputAt = null;
 let useVoice = false;
-let serverVoice = true;
+voices.onAmp = (v) => room?.setAmp(v);
 
 async function api(path, body) {
   const res = await fetch(`/api/${path}`, {
@@ -68,35 +76,34 @@ async function api(path, body) {
   }
   return res.json();
 }
-function accept(view) {
-  session = view;
-  token = view.token;
-}
+const accept = (view) => { session = view; token = view.token; };
 function showError(id, message) {
   $(id).textContent = message || "";
   $(id).hidden = !message;
 }
+const bandOf = (score) => (score >= 15 ? "Severe" : score >= 10 ? "Moderate" : score >= 5 ? "Mild" : "Minimal");
+const gadScore = () => form.gad.reduce((a, b) => a + (b || 0), 0);
 
-/* ---------- Wizard navigation, with real back buttons ---------- */
-const STEPS = ["w-event", "w-fear", "w-gad", "w-safety", "w-consent", "w-plan"];
-const BACK_LABEL = { "w-event": "Home", "w-fear": "Event", "w-gad": "Prediction", "w-safety": "Questionnaire", "w-consent": "Safety", "w-plan": "Edit answers" };
+/* ---------- Wizard, with a real back button on every step ---------- */
+const STEPS = ["w-event", "w-fear", "w-gad", "w-result", "w-safety", "w-consent", "w-connect", "w-plan"];
+const BACK_LABEL = { "w-event": "Home", "w-fear": "Situation", "w-gad": "Prediction", "w-result": "Questionnaire", "w-safety": "Result", "w-consent": "Safety", "w-connect": "Consent", "w-plan": "Edit answers" };
+const PROGRESS = { "w-event": 1, "w-fear": 2, "w-gad": 3, "w-result": 3, "w-safety": 4, "w-consent": 5, "w-connect": 6 };
 let current = "w-event";
 
 function showStep(id, push = true) {
   [...STEPS, "w-loading"].forEach((s) => { $(s).hidden = s !== id; });
   current = id;
-  const index = STEPS.indexOf(id);
   $("wiz-back-label").textContent = BACK_LABEL[id] || "Back";
   $("wiz-back").hidden = id === "w-loading";
-  $("wiz-sample").hidden = index !== 0;
+  $("wiz-sample").hidden = id !== "w-event";
   const bar = $("wiz-bar");
-  bar.hidden = index < 0 || index > 4;
+  const progress = PROGRESS[id];
+  bar.hidden = !progress;
+  bar.setAttribute("aria-valuenow", progress || 6);
+  [...bar.children].forEach((pip, i) => pip.classList.toggle("on", i < (progress || 0)));
   $("wizard").classList.toggle("wide", id === "w-plan");
-  bar.setAttribute("aria-valuenow", index + 1);
-  [...bar.children].forEach((pip, i) => pip.classList.toggle("on", i <= index));
   if (push) history.pushState({ step: id }, "");
   scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
-  $(id).querySelector("h1")?.focus?.({ preventScroll: true });
 }
 function goBack() {
   const index = STEPS.indexOf(current);
@@ -107,7 +114,6 @@ function goBack() {
 $("wiz-back").addEventListener("click", goBack);
 addEventListener("popstate", (e) => {
   if (!$("stage").hidden) {
-    // The browser back button leaves the room only after confirming.
     history.pushState({ stage: true }, "");
     openLeave();
     return;
@@ -116,11 +122,11 @@ addEventListener("popstate", (e) => {
 });
 history.replaceState({ step: "w-event" }, "");
 
-/* Step 1 and 2 */
 const daysText = (d) => (Number(d) === 1 ? "Tomorrow" : `In ${d} days`);
 $("f-days").addEventListener("input", (e) => { $("o-days").textContent = daysText(e.target.value); });
 $("f-belief").addEventListener("input", (e) => { $("o-belief").textContent = `${e.target.value}%`; });
 $("f-after").addEventListener("input", (e) => { $("o-after").textContent = `${e.target.value}%`; });
+$("f-peak").addEventListener("input", (e) => { $("o-peak").textContent = `${e.target.value} of 10`; });
 function chipsFill(container, input) {
   container.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("click", () => {
     input.value = chip.textContent;
@@ -133,31 +139,26 @@ chipsFill($("fear-chips"), $("f-pred"));
 
 $("w-event").addEventListener("submit", (e) => {
   e.preventDefault();
-  if ($("f-event").value.trim().length < 2) return showError("e-event", "Name your event, or pick one above.");
+  if ($("f-event").value.trim().length < 2) return showError("e-event", "Describe the situation, or pick one above.");
   showError("e-event");
   showStep("w-fear");
 });
 $("w-fear").addEventListener("submit", (e) => {
   e.preventDefault();
-  if ($("f-pred").value.trim().length < 5) return showError("e-fear", "Write what you fear will happen, or pick one above.");
+  if ($("f-pred").value.trim().length < 5) return showError("e-fear", "Write what your anxiety says will happen, or pick one above.");
   showError("e-fear");
   showStep("w-gad");
 });
 
-/* Step 3: GAD-7 */
+/* GAD-7 */
 GAD_ITEMS.forEach((item, i) => {
-  const li = document.createElement("li");
-  const label = document.createElement("span");
-  label.className = "title-3";
-  label.textContent = item;
-  const seg = document.createElement("div");
-  seg.className = "seg";
+  const li = el("li");
+  const seg = el("div", "seg");
   seg.setAttribute("role", "radiogroup");
   seg.setAttribute("aria-label", item);
   GAD_OPTIONS.forEach((option, value) => {
-    const b = document.createElement("button");
+    const b = el("button", "", option);
     b.type = "button";
-    b.textContent = option;
     b.setAttribute("role", "radio");
     b.setAttribute("aria-checked", "false");
     b.addEventListener("click", () => {
@@ -166,17 +167,30 @@ GAD_ITEMS.forEach((item, i) => {
     });
     seg.append(b);
   });
-  li.append(label, seg);
+  li.append(el("span", "title-3", item), seg);
   $("gad").append(li);
 });
+function marker(node, score) { node.style.left = `${Math.min(100, (score / 21) * 100)}%`; }
+function renderResult() {
+  const score = gadScore();
+  $("res-score").textContent = score;
+  $("res-band").textContent = `${bandOf(score)} anxiety symptoms`;
+  marker($("res-marker"), score);
+  const ranked = form.gad.map((v, i) => [v, i]).filter(([v]) => v >= 1).sort((a, b) => b[0] - a[0]).slice(0, 3);
+  $("res-concerns").replaceChildren(...(ranked.length
+    ? ranked.map(([v, i]) => { const li = el("li"); li.append(el("strong", "", GAD_ITEMS[i]), el("span", "muted", ` · ${GAD_OPTIONS[v]}`)); return li; })
+    : [el("li", "", "You didn't report being bothered by any of these.")]));
+}
 $("w-gad").addEventListener("submit", (e) => {
   e.preventDefault();
   if (form.gad.includes(null)) return showError("e-gad", "Please answer all seven, so we can check this suits you today.");
   showError("e-gad");
-  showStep("w-safety");
+  renderResult();
+  showStep("w-result");
 });
+$("result-next").addEventListener("click", () => showStep("w-safety"));
 
-/* Step 4: safety questions need an explicit answer */
+/* Safety */
 const yes = { "q-harm": "self_harm", "q-heart": "heart_condition", "q-crisis": "crisis" };
 function setYn(id, value) {
   form[yes[id]] = value;
@@ -192,13 +206,19 @@ $("w-safety").addEventListener("submit", (e) => {
   showStep("w-consent");
 });
 
-/* Step 5: consent is its own moment, not one checkbox among many */
+/* Consent is its own moment */
 function setConsent(on) {
   form.consent = on;
   $("agree").setAttribute("aria-checked", String(on));
-  $("build-btn").disabled = !on;
+  $("consent-next").disabled = !on;
 }
 $("agree").addEventListener("click", () => setConsent(!form.consent));
+$("w-consent").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!form.consent) return;
+  voices.preloadKokoro();
+  showStep("w-connect");
+});
 
 $("wiz-sample").addEventListener("click", () => {
   const p = SAMPLE_PROFILE;
@@ -209,17 +229,18 @@ $("wiz-sample").addEventListener("click", () => {
   $("f-belief").value = p.belief;
   $("o-belief").textContent = `${p.belief}%`;
   document.querySelectorAll("#gad .seg").forEach((seg, i) => seg.querySelectorAll("button")[p.gad[i]].click());
-  setYn("q-harm", p.harm);
-  setYn("q-heart", p.heart);
-  setYn("q-crisis", p.crisis);
-  // Consent is never skipped, even for the sample path.
-  showStep("w-consent");
+  setYn("q-harm", false);
+  setYn("q-heart", false);
+  setYn("q-crisis", false);
+  renderResult();
+  // The sample path still shows the result and still requires consent.
+  showStep("w-result");
 });
 
-$("w-consent").addEventListener("submit", async (e) => {
+/* Build the plan */
+$("w-connect").addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!form.consent) return;
-  showError("e-consent");
+  showError("e-connect");
   showStep("w-loading", false);
   const started = performance.now();
   try {
@@ -228,7 +249,7 @@ $("w-consent").addEventListener("submit", async (e) => {
       days_until: Number($("f-days").value),
       prediction: $("f-pred").value.trim(),
       belief_before: Number($("f-belief").value),
-      gad7: form.gad.reduce((a, b) => a + b, 0),
+      gad_items: form.gad,
       self_harm: form.self_harm,
       heart_condition: form.heart_condition,
       crisis: form.crisis,
@@ -238,57 +259,32 @@ $("w-consent").addEventListener("submit", async (e) => {
     if (view.status === "planned") renderPlan(performance.now() - started);
     else routeExit();
   } catch (err) {
-    showStep("w-consent", false);
-    showError("e-consent", err.message);
+    showStep("w-connect", false);
+    showError("e-connect", err.message);
   }
 });
-
 function renderPlan(ms) {
   const plan = session.plan;
   const source = (session.trail.find((t) => t.who.startsWith("Ladder Planner")) || { who: "" }).who;
   $("plan-meta").textContent = source.includes("Groq") ? `· written live by Groq in ${(ms / 1000).toFixed(1)} s` : "· from the scripted planner";
-  $("plan-title").textContent = `${plan.steps.length} steps toward your ${session.event.toLowerCase()}`;
+  $("plan-path").textContent = session.pathway.name;
+  $("plan-why").textContent = session.pathway.why;
+  $("plan-gad").textContent = `${session.gad.score}/21 · ${session.gad.band}`;
+  $("plan-event").textContent = session.event;
   $("plan-said").textContent = session.prediction;
   $("plan-test").textContent = plan.testable_version;
   $("ladder").replaceChildren(...plan.steps.map((step, i) => {
-    const li = document.createElement("li");
-    li.className = `rung rung-${i + 1}`;
+    const li = el("li", `rung rung-${i + 1}`);
     li.style.animationDelay = `${i * 90}ms`;
-    const day = document.createElement("span");
-    day.className = "rung-day mono";
-    day.textContent = `${i === 0 ? "Today · " : ""}Day ${step.day} · Level ${step.difficulty}`;
-    const title = document.createElement("strong");
-    title.className = "title-3";
-    title.textContent = step.title;
-    const test = document.createElement("span");
-    test.className = "body-6 muted";
-    test.textContent = step.test;
-    li.append(day, title, test);
+    li.append(el("span", "rung-day mono", `${i === 0 ? "Today · " : ""}Day ${step.day} · Level ${step.difficulty}`), el("strong", "title-3", step.title), el("span", "body-6 muted", step.test));
     return li;
   }));
   showStep("w-plan");
 }
 
-/* ---------- Entering the room ---------- */
-let audioCtx = null;
-let analyser = null;
-
-function ensureAudio() {
-  // Created on a click, so browsers allow sound.
-  if (!audioCtx) {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (Ctx) {
-      audioCtx = new Ctx();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.connect(audioCtx.destination);
-    }
-  }
-  audioCtx?.resume?.();
-}
-
+/* ---------- Guided session ---------- */
 $("enter-btn").addEventListener("click", () => {
-  ensureAudio();
+  voices.unlock();
   $("wizard").hidden = true;
   $("stage").hidden = false;
   history.pushState({ stage: true }, "");
@@ -297,13 +293,12 @@ $("enter-btn").addEventListener("click", () => {
   $("calibrate").hidden = false;
   $("cal-btn").hidden = false;
   $("cal-progress").hidden = true;
+  $("data-label").textContent = session.data_label;
   buildInject();
-  renderPips(session.level);
   fitRoom();
 });
-
 $("cal-btn").addEventListener("click", async () => {
-  ensureAudio();
+  voices.unlock();
   $("cal-btn").hidden = true;
   $("cal-progress").hidden = false;
   requestAnimationFrame(() => { $("cal-fill").style.transform = "scaleX(1)"; });
@@ -313,9 +308,8 @@ $("cal-btn").addEventListener("click", async () => {
     series = [];
     trailShown = 0;
     $("trail").replaceChildren();
-    $("ledger").replaceChildren();
     $("ev-pred").textContent = session.plan.testable_version;
-    drawChart();
+    drawChart($("chart"));
     setState("CALIBRATING");
     renderTrail();
     renderLedger();
@@ -331,155 +325,72 @@ $("cal-btn").addEventListener("click", async () => {
   }
 });
 
-/* ---------- The panel speaks ---------- */
-function renderPips(level) {
-  $("pips").replaceChildren(...[1, 2, 3, 4, 5].map((n) => {
-    const p = document.createElement("span");
-    p.className = n <= level ? "pip on" : "pip";
-    return p;
-  }));
-  $("pips").setAttribute("aria-label", `Panel difficulty ${level} of 5`);
+function setVerdict(verdict) {
+  const node = $("hud-verdict");
+  if (!verdict) { node.dataset.v = "unavailable"; $("hud-verdict-text").textContent = "Reading starts soon"; return; }
+  node.dataset.v = verdict.label;
+  const label = verdict.label === "unavailable" ? "No trusted reading" : `Anxiety-like: ${verdict.label}`;
+  $("hud-verdict-text").textContent = `${label} · ${verdict.source.toLowerCase()}`;
 }
-function typewrite(el, text, durationMs, token_) {
-  if (reduced) { el.textContent = text; return; }
+function typewrite(node, text, durationMs, mine) {
+  if (reduced) { node.textContent = text; return; }
   const words = text.split(" ");
   const each = Math.max(40, durationMs / words.length);
-  el.textContent = "";
+  node.textContent = "";
   words.forEach((w, i) => setTimeout(() => {
-    if (token_ === speakToken) el.textContent = words.slice(0, i + 1).join(" ");
+    if (mine === speakToken) node.textContent = words.slice(0, i + 1).join(" ");
   }, i * each));
 }
-
-let speakToken = 0;
-let ampTimer = null;
-let currentAudio = null;
-let currentUtterance = false;
-
 function stopSpeaking() {
   speakToken += 1;
-  clearInterval(ampTimer);
-  if (currentAudio) { try { currentAudio.stop(); } catch { /* already stopped */ } currentAudio = null; }
-  if (currentUtterance && "speechSynthesis" in window) speechSynthesis.cancel();
-  currentUtterance = false;
-  room?.setAmp(0);
+  voices.stop();
 }
-
-function fakeAmp() {
-  const start = performance.now();
-  clearInterval(ampTimer);
-  ampTimer = setInterval(() => {
-    const t = performance.now() - start;
-    room?.setAmp(Math.abs(Math.sin(t / 95)) * (0.45 + 0.4 * Math.abs(Math.sin(t / 310))));
-  }, 40);
-}
-
-async function playServerVoice(line, member, mine) {
-  if (!serverVoice || !audioCtx || !soundOn) return false;
-  try {
-    const res = await fetch("/api/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: line, member }) });
-    if (!res.ok) { serverVoice = false; return false; }
-    const buffer = await audioCtx.decodeAudioData(await res.arrayBuffer());
-    if (mine !== speakToken) return true;
-    const src = audioCtx.createBufferSource();
-    src.buffer = buffer;
-    src.connect(analyser);
-    currentAudio = src;
-    const data = new Uint8Array(analyser.fftSize);
-    clearInterval(ampTimer);
-    ampTimer = setInterval(() => {
-      analyser.getByteTimeDomainData(data);
-      let sum = 0;
-      for (const v of data) sum += ((v - 128) / 128) ** 2;
-      room?.setAmp(Math.min(1, Math.sqrt(sum / data.length) * 5));
-    }, 30);
-    typewrite($("line"), line, buffer.duration * 1000, mine);
-    await new Promise((resolve) => { src.onended = resolve; src.start(); });
-    return true;
-  } catch {
-    serverVoice = false;
-    return false;
-  }
-}
-
-function browserVoice(line, member, mine) {
-  return new Promise((resolve) => {
-    const est = line.split(" ").length * 340;
-    fakeAmp();
-    typewrite($("line"), line, est, mine);
-    if (!soundOn || !("speechSynthesis" in window)) { setTimeout(resolve, est); return; }
-    const u = new SpeechSynthesisUtterance(line);
-    const voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en"));
-    const i = ["Dr Rao", "Prof Ellis", "Ms Kim"].indexOf(member);
-    if (voices.length) u.voice = voices[i % voices.length];
-    u.rate = 1.02;
-    u.pitch = [0.95, 1.05, 1.15][i] || 1;
-    let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
-    u.onend = finish;
-    u.onerror = finish;
-    currentUtterance = true;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-    setTimeout(finish, est + 5000);
-  });
-}
-
 async function panelTurn() {
   const q = session.question;
   if (!q) return;
   const mine = ++speakToken;
   closeAnswerWindow();
-  $("q-count").textContent = `Question ${session.turn + 1} of ${session.max_turns}`;
-  renderPips(q.level);
+  $("q-count").textContent = `Step ${session.turn + 1} of ${session.max_turns}`;
   room?.setCalm(false);
   room?.setPressure(q.level);
   room?.setTactic(q.tactic);
   $("caption").classList.remove("waiting");
-
   if (q.tactic === "hold_silence") {
-    // The panel deliberately says nothing, on the Director's choice.
     room?.setSpeaker(null);
-    $("who").textContent = "The panel";
+    $("who").textContent = "Your guides";
     $("line").textContent = "They look at you, and wait.";
     $("caption").classList.add("waiting");
-    await sleep(reduced ? 300 : 3200);
+    await sleep(reduced ? 300 : 3000);
     if (mine !== speakToken) return;
     $("caption").classList.remove("waiting");
   }
   $("who").textContent = q.member;
-  $("line").textContent = "";
+  // Words appear right away, so nobody ever waits on a voice.
+  typewrite($("line"), q.line, q.line.split(" ").length * 300, mine);
   room?.setSpeaker(q.member);
-  const voiced = await playServerVoice(q.line, q.member, mine);
+  await voices.speak(q.line, q.member, { sound: soundOn, isCurrent: () => mine === speakToken });
   if (mine !== speakToken) return;
-  if (!voiced) await browserVoice(q.line, q.member, mine);
-  if (mine !== speakToken) return;
-  clearInterval(ampTimer);
-  room?.setAmp(0);
+  voices.stop();
   room?.setSpeaker(null);
   $("line").textContent = q.line;
   openAnswerWindow();
 }
 
-/* ---------- Answering: the pause is actually measured ---------- */
+/* Responding: the time before you respond is actually measured */
 let ringTimer = null;
 const target = () => session?.plan?.target_pause_s || 3;
-
 function updateMeter() {
-  const held = (firstInputAt ?? performance.now()) - answerOpenAt;
-  const s = held / 1000;
+  const s = ((firstInputAt ?? performance.now()) - answerOpenAt) / 1000;
   $("ring-text").textContent = s.toFixed(1);
-  const pct = Math.min(1, s / target());
-  $("ring-fg").style.strokeDashoffset = String(176 * (1 - pct));
+  $("ring-fg").style.strokeDashoffset = String(176 * (1 - Math.min(1, s / target())));
   $("meter").classList.toggle("held", s >= target());
-  $("meter-title").textContent = firstInputAt
-    ? s >= target() ? `You held ${s.toFixed(1)} seconds` : `You started after ${s.toFixed(1)} seconds`
-    : s >= target() ? "That's your pause. Answer when ready." : `Hold ${target()} seconds before you answer`;
+  $("meter-title").textContent = firstInputAt ? `You took ${s.toFixed(1)} seconds before responding` : "Take your time. There's no rush.";
 }
 function openAnswerWindow() {
   answerOpenAt = performance.now();
   firstInputAt = null;
   $("answer-box").classList.remove("locked");
-  $("meter-sub").textContent = session.plan.testable_version;
+  $("meter-sub").textContent = `Testing: ${session.plan.testable_version}`;
   $("answer").value = "";
   clearInterval(ringTimer);
   ringTimer = setInterval(updateMeter, 80);
@@ -509,7 +420,7 @@ const END_SILENCE_MS = 2200;
 
 async function enableMic() {
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-    showError("e-answer", "Voice isn't available in this browser. Type your answer instead.");
+    showError("e-answer", "Voice isn't available in this browser. Type your response instead.");
     return false;
   }
   try {
@@ -521,7 +432,7 @@ async function enableMic() {
     micCtx.createMediaStreamSource(micStream).connect(micAnalyser);
     return true;
   } catch {
-    showError("e-answer", "Microphone access was blocked. Allow it in your browser, or type your answer.");
+    showError("e-answer", "Microphone access was blocked. Allow it in your browser, or type your response.");
     return false;
   }
 }
@@ -539,7 +450,7 @@ function drawWave() {
     if (!recorder || recorder.state !== "recording") { g.clearRect(0, 0, c.width, c.height); return; }
     const { data } = micLevel();
     g.clearRect(0, 0, c.width, c.height);
-    g.strokeStyle = "#2F3E52";
+    g.strokeStyle = "#E4DCCB";
     g.lineWidth = 3;
     g.lineCap = "round";
     g.beginPath();
@@ -603,17 +514,17 @@ async function finishListening() {
   const pause = firstInputAt && answerOpenAt ? (firstInputAt - answerOpenAt) / 1000 : null;
   const blob = await stopRecorder();
   if (!blob || !speechSeen) {
-    showError("e-answer", "We didn't catch any speech. Try again, or type your answer.");
+    showError("e-answer", "We didn't catch any speech. Try again, or type your response.");
     return;
   }
   closeAnswerWindow();
-  $("meter-title").textContent = "Whisper is transcribing your answer";
+  $("meter-title").textContent = "Transcribing what you said";
   $("meter-sub").textContent = "";
   try {
     const res = await fetch("/api/transcribe", { method: "POST", headers: { "Content-Type": (blob.type || "audio/webm").split(";")[0] }, body: blob });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Speech recognition failed. Type your answer instead.");
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Speech recognition failed. Type your response instead.");
     const heard = await res.json();
-    if (!heard.text) throw new Error("We didn't catch that. Try again, or type your answer.");
+    if (!heard.text) throw new Error("We didn't catch that. Try again, or type your response.");
     await submitAnswer(heard.text, "voice", pause, heard.words);
   } catch (err) {
     openAnswerWindow();
@@ -633,15 +544,13 @@ $("mic-btn").addEventListener("click", async () => {
   useVoice = true;
   if (answerOpenAt) startListening();
 });
-
 $("sample-btn").addEventListener("click", () => {
-  if (inFlight) return;
-  submitAnswer(SAMPLE_ANSWERS[session.turn % SAMPLE_ANSWERS.length], "sample", null, null);
+  if (!inFlight) submitAnswer(SAMPLE_ANSWERS[session.turn % SAMPLE_ANSWERS.length], "sample", null, null);
 });
 $("answer-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = $("answer").value.trim();
-  if (!text) return showError("e-answer", "Add an answer first, or use your voice.");
+  if (!text) return showError("e-answer", "Add a response first, or use your voice.");
   const pause = firstInputAt && answerOpenAt ? (firstInputAt - answerOpenAt) / 1000 : null;
   submitAnswer(text, "typed", pause, null);
 });
@@ -669,18 +578,20 @@ async function submitAnswer(text, source, pause, words) {
     if (mine !== stopToken) return;
     const last = view.turn_log[view.turn_log.length - 1];
     if (last && view.readings.length) setState(last.state);
+    setVerdict(view.verdict);
     renderTrail();
     renderLedger();
+    inFlight = false;
     route();
   } catch (err) {
     openAnswerWindow();
-    showError("e-answer", `${err.message} Your answer wasn't sent.`);
+    showError("e-answer", `${err.message} Your response wasn't sent.`);
   } finally {
     inFlight = false;
   }
 }
 
-/* ---------- Routing by session status ---------- */
+/* ---------- Routing ---------- */
 function leaveStage() {
   stopSpeaking();
   stopRecorder();
@@ -692,12 +603,34 @@ function leaveStage() {
 }
 function routeExit() {
   leaveStage();
-  $("wizard").hidden = true;
+  ["wizard", "debrief", "report"].forEach((id) => { $(id).hidden = true; });
   const titles = { referred: "Let's get you the right support", crisis: "You deserve support right now", medical: "Please look after yourself first" };
   $("exit-title").textContent = titles[session.status];
   $("exit-text").textContent = session.exit_message;
   $("exit").hidden = false;
   scrollTo(0, 0);
+}
+function buildPost() {
+  $("symptoms").replaceChildren(...SYMPTOMS.map((name) => {
+    const b = el("button", "chip", name);
+    b.type = "button";
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => {
+      const on = !form.symptoms.has(name);
+      if (name === "None of these" && on) form.symptoms.clear();
+      else form.symptoms.delete("None of these");
+      if (on) form.symptoms.add(name); else form.symptoms.delete(name);
+      $("symptoms").querySelectorAll(".chip").forEach((c) => {
+        c.classList.toggle("is-on", form.symptoms.has(c.textContent));
+        c.setAttribute("aria-pressed", String(form.symptoms.has(c.textContent)));
+      });
+    });
+    return b;
+  }));
+  $("q-outcome").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    form.outcome = b.dataset.v;
+    $("q-outcome").querySelectorAll("button").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
+  }));
 }
 function route() {
   const s = session.status;
@@ -706,19 +639,20 @@ function route() {
     stopSpeaking();
     room?.setCalm(true);
     room?.setSpeaker(null);
-    $("who").textContent = "The panel";
+    $("who").textContent = "Your guides";
     $("line").textContent = "Everyone is waiting. Take the time you need.";
     $("caption").classList.add("waiting");
     $("pause-text").textContent = session.exit_message;
+    $("breath").hidden = true;
     if (!$("pause-dlg").open) $("pause-dlg").showModal();
     return;
   }
   if (s === "debrief") {
     leaveStage();
-    $("d-pred").textContent = session.prediction;
+    $("d-pred").textContent = `Your anxiety said: "${session.prediction}"`;
     $("d-note").textContent = session.exit_message
-      ? `${session.exit_message} You can still rate your prediction.`
-      : "You've finished this session. Rate your prediction again, based on what really happened.";
+      ? `${session.exit_message} These answers help make your summary useful.`
+      : "Your answers, your GAD-7 and the readings all go into your summary.";
     $("d-before").textContent = `${session.belief_before}%`;
     $("f-after").value = session.belief_before;
     $("o-after").textContent = `${session.belief_before}%`;
@@ -729,7 +663,10 @@ function route() {
   if (s === "complete") return renderReport();
   panelTurn();
 }
+let breathTimer = null;
 async function resume(choice) {
+  if (breathTimer) { clearInterval(breathTimer); breathTimer = null; }
+  $("breath-btn").disabled = false;
   $("pause-dlg").close();
   try {
     accept(await api("resume", { token, choice }));
@@ -744,6 +681,24 @@ async function resume(choice) {
 $("resume-go").addEventListener("click", () => resume("continue"));
 $("resume-stop").addEventListener("click", () => resume("stop"));
 $("pause-dlg").addEventListener("cancel", (e) => e.preventDefault());
+$("breath-btn").addEventListener("click", () => {
+  $("breath").hidden = false;
+  $("breath-btn").disabled = true;
+  let t = 0;
+  const say = () => { $("breath-text").textContent = t % 10 < 4 ? "Breathe in" : "Breathe out"; };
+  say();
+  breathTimer = setInterval(() => {
+    t += 1;
+    if (t >= 30) {
+      clearInterval(breathTimer);
+      breathTimer = null;
+      $("breath-text").textContent = "Whenever you're ready";
+      $("breath-btn").disabled = false;
+      return;
+    }
+    say();
+  }, 1000);
+});
 
 async function stopSession() {
   stopToken += 1;
@@ -763,7 +718,6 @@ async function stopSession() {
 $("stop-btn").addEventListener("click", stopSession);
 function openLeave() { if (!$("leave-dlg").open) $("leave-dlg").showModal(); }
 $("leave-btn").addEventListener("click", () => {
-  // Before the session starts there's nothing to end.
   if (!$("calibrate").hidden) {
     leaveStage();
     $("wizard").hidden = false;
@@ -775,12 +729,11 @@ $("leave-btn").addEventListener("click", () => {
 $("leave-stay").addEventListener("click", () => $("leave-dlg").close());
 $("leave-go").addEventListener("click", stopSession);
 
-/* ---------- Sound ---------- */
 $("sound-btn").addEventListener("click", () => {
   soundOn = !soundOn;
   $("sound-btn").setAttribute("aria-pressed", String(soundOn));
   setIcon($("sound-icon"), soundOn ? "speaker-high" : "speaker-slash");
-  if (!soundOn && "speechSynthesis" in window) speechSynthesis.cancel();
+  if (!soundOn) voices.stop();
 });
 
 /* ---------- Inside the agent ---------- */
@@ -792,12 +745,10 @@ function fitRoom() {
 }
 addEventListener("resize", fitRoom);
 if (window.ResizeObserver) new ResizeObserver(fitRoom).observe($("dock"));
-
 function setDrawer(open) {
   $("drawer").hidden = !open;
   $("agent-btn").setAttribute("aria-expanded", String(open));
   $("stage").classList.toggle("drawer-open", open);
-  room?.setShift(open && innerWidth > 1180 ? 216 : 0);
   fitRoom();
 }
 $("agent-btn").addEventListener("click", () => setDrawer($("drawer").hidden));
@@ -806,16 +757,12 @@ document.querySelectorAll(".tabs button").forEach((tab) => tab.addEventListener(
   document.querySelectorAll(".tabs button").forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
   ["live", "evidence", "log"].forEach((name) => { $(`tab-${name}`).hidden = name !== tab.dataset.tab; });
 }));
-
 function buildInject() {
-  const names = ["auto", "calm", "rising", "high", "limit", "movement", "sensor_loss"];
-  $("inject").replaceChildren(...names.map((name) => {
-    const b = document.createElement("button");
+  $("inject").replaceChildren(...Object.keys(INJECT_LABELS).map((name) => {
+    const b = el("button", "chip", INJECT_LABELS[name]);
     b.type = "button";
-    b.className = "chip";
     b.dataset.v = name;
     b.setAttribute("role", "radio");
-    b.textContent = INJECT_LABELS[name];
     b.addEventListener("click", () => setInjection(name));
     return b;
   }));
@@ -828,31 +775,23 @@ function setInjection(name) {
     c.setAttribute("aria-checked", String(c.dataset.v === name));
   });
 }
-
 async function playPipeline(steps) {
   const list = $("pipeline");
   list.replaceChildren();
   for (const step of steps || []) {
-    const li = document.createElement("li");
-    li.className = "pipe";
-    const dot = document.createElement("i");
-    dot.className = `dot ${step.kind === "llm" ? "dot-llm" : "dot-code"}`;
-    const name = document.createElement("span");
-    name.className = "pipe-name";
-    name.textContent = NODE_NAMES[step.node] + (step.source === "Scripted" ? " (scripted)" : "");
-    const ms = document.createElement("span");
-    ms.className = "pipe-ms";
-    ms.textContent = step.ms < 1 ? "<1 ms" : `${Math.round(step.ms)} ms`;
-    const sum = document.createElement("span");
-    sum.className = "pipe-sum";
-    sum.textContent = step.summary;
-    li.append(dot, name, ms, sum);
+    const li = el("li", "pipe");
+    const dotClass = step.kind === "llm" ? "dot-llm" : step.kind === "model" ? "dot-model" : "dot-code";
+    li.append(
+      el("i", `dot ${dotClass}`),
+      el("span", "pipe-name", NODE_NAMES[step.node] + (step.source === "Scripted" ? " (scripted)" : "")),
+      el("span", "pipe-ms", step.ms < 1 ? "<1 ms" : `${Math.round(step.ms)} ms`),
+      el("span", "pipe-sum", step.summary),
+    );
     list.append(li);
     requestAnimationFrame(() => li.classList.add("lit"));
-    if (!reduced && !document.hidden) await sleep(240);
+    if (!reduced && !document.hidden && !$("drawer").hidden) await sleep(200);
   }
 }
-
 function setState(state) {
   const [label, text] = STATE_TEXT[state] || STATE_TEXT.UNKNOWN;
   $("state").dataset.state = state;
@@ -862,15 +801,15 @@ function setState(state) {
 
 const CHART = { w: 400, h: 144, min: -5, max: 45 };
 const yOf = (v) => 6 + (1 - (v - CHART.min) / (CHART.max - CHART.min)) * (CHART.h - 12);
-const xOf = (i, n) => 4 + (i / Math.max(n - 1, 240)) * (CHART.w - 8);
 const BANDS = [{ v: 5, label: "Engaged +5" }, { v: 20, label: "High +20" }, { v: 35, label: "Limit +35" }];
-function drawChart() {
+function drawChart(root, data = series, span = 240) {
   const NS = "http://www.w3.org/2000/svg";
+  const xOf = (i) => 4 + (i / Math.max(data.length - 1, span)) * (CHART.w - 8);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${CHART.w} ${CHART.h}`);
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", "Line chart of heart rate change from baseline. Each answer's state is listed in the reasoning tab.");
+  svg.setAttribute("aria-label", "Line chart of heart rate change from baseline during the session.");
   BANDS.forEach((b) => {
     const line = document.createElementNS(NS, "line");
     line.setAttribute("x1", 0); line.setAttribute("x2", CHART.w);
@@ -881,79 +820,70 @@ function drawChart() {
   });
   let d = "";
   let open = false;
-  series.forEach((p, i) => {
+  data.forEach((p, i) => {
     if (p.delta === null) { open = false; return; }
-    d += `${open ? "L" : "M"}${xOf(i, series.length).toFixed(1)} ${yOf(Math.max(CHART.min, Math.min(CHART.max, p.delta))).toFixed(1)}`;
+    d += `${open ? "L" : "M"}${xOf(i).toFixed(1)} ${yOf(Math.max(CHART.min, Math.min(CHART.max, p.delta))).toFixed(1)}`;
     open = true;
   });
   const path = document.createElementNS(NS, "path");
   path.setAttribute("d", d);
   path.setAttribute("fill", "none");
-  path.setAttribute("stroke", "#2F3E52");
-  path.setAttribute("stroke-width", 2);
+  path.setAttribute("stroke", "#A8553D");
+  path.setAttribute("stroke-width", 2.5);
   path.setAttribute("stroke-linejoin", "round");
   path.setAttribute("stroke-linecap", "round");
   path.setAttribute("vector-effect", "non-scaling-stroke");
   svg.append(path);
-  const root = $("chart");
   root.replaceChildren(svg);
   BANDS.forEach((b) => {
-    const tag = document.createElement("span");
-    tag.className = "chart-tag";
-    tag.textContent = b.label;
+    const tag = el("span", "chart-tag", b.label);
     tag.style.top = `${(yOf(b.v) / CHART.h) * 100}%`;
     root.append(tag);
   });
 }
-$("chart").addEventListener("pointermove", (ev) => {
-  if (!series.length) return;
-  const box = $("chart").getBoundingClientRect();
-  const frac = (ev.clientX - box.left) / box.width;
-  const i = Math.max(0, Math.min(series.length - 1, Math.round(frac * Math.max(series.length - 1, 240))));
-  const p = series[i];
-  let tip = $("chart").querySelector(".tip");
-  if (!tip) { tip = document.createElement("span"); tip.className = "tip"; $("chart").append(tip); }
-  const value = p.delta === null ? "not trusted" : `${p.delta > 0 ? "+" : ""}${p.delta.toFixed(1)} bpm`;
-  tip.textContent = `${p.t} s, ${value}, ${STATE_TEXT[p.state][0]}`;
-  tip.style.left = `${Math.min(frac * box.width, box.width - 170)}px`;
-});
-$("chart").addEventListener("pointerleave", () => $("chart").querySelector(".tip")?.remove());
+function attachHover(root, getData, span) {
+  root.addEventListener("pointermove", (ev) => {
+    const data = getData();
+    if (!data.length) return;
+    const box = root.getBoundingClientRect();
+    const frac = (ev.clientX - box.left) / box.width;
+    const i = Math.max(0, Math.min(data.length - 1, Math.round(frac * Math.max(data.length - 1, span()))));
+    const p = data[i];
+    let tip = root.querySelector(".tip");
+    if (!tip) { tip = el("span", "tip"); root.append(tip); }
+    const value = p.delta === null ? "not trusted" : `${p.delta > 0 ? "+" : ""}${p.delta.toFixed(1)} bpm`;
+    tip.textContent = `${p.t} s, ${value}, ${STATE_TEXT[p.state][0]}`;
+    tip.style.left = `${Math.min(frac * box.width, box.width - 170)}px`;
+  });
+  root.addEventListener("pointerleave", () => root.querySelector(".tip")?.remove());
+}
+attachHover($("chart"), () => series, () => 240);
+attachHover($("r-chart"), () => series, () => series.length);
 
 function animateReadings(readings) {
   return new Promise((resolve) => {
     if (reduced || !readings?.length || document.hidden || $("drawer").hidden) {
       series.push(...(readings || []));
-      drawChart();
+      drawChart($("chart"));
       return resolve();
     }
-    const duration = 1500;
     const start = performance.now();
     let added = 0;
     const timer = setInterval(() => {
-      const goal = document.hidden ? readings.length : Math.min(readings.length, Math.floor(((performance.now() - start) / duration) * readings.length));
+      const goal = document.hidden ? readings.length : Math.min(readings.length, Math.floor(((performance.now() - start) / 1400) * readings.length));
       if (goal > added) {
         series.push(...readings.slice(added, goal));
         added = goal;
-        drawChart();
+        drawChart($("chart"));
       }
       if (added >= readings.length) { clearInterval(timer); resolve(); }
     }, 40);
   });
 }
-
 function trailItem(entry) {
-  const li = document.createElement("li");
-  li.dataset.kind = entry.who.startsWith("Safety") ? "governor" : entry.who.startsWith("Difficulty") ? "policy" : entry.who.includes("(") ? "llm" : "other";
-  const who = document.createElement("span");
-  who.className = "t-who";
-  who.textContent = entry.who;
-  const ms = document.createElement("span");
-  ms.className = "t-ms";
-  ms.textContent = entry.ms ? `${entry.ms} ms` : "";
-  const what = document.createElement("span");
-  what.className = "t-what";
-  what.textContent = entry.text;
-  li.append(who, ms, what);
+  const li = el("li");
+  li.dataset.kind = entry.who.startsWith("Safety") ? "governor" : entry.who.startsWith("Difficulty") ? "policy" : entry.who.startsWith("Anxiety") ? "model" : entry.who.includes("(") ? "llm" : "other";
+  li.append(el("span", "t-who", entry.who), el("span", "t-ms", entry.ms ? `${entry.ms} ms` : ""), el("span", "t-what", entry.text));
   return li;
 }
 function renderTrail() {
@@ -963,72 +893,102 @@ function renderTrail() {
 function renderLedger() {
   const list = $("ledger");
   if (!session.evidence.length) {
-    const li = document.createElement("li");
-    li.className = "empty";
-    li.textContent = "Answer a question. What you actually did appears here, measured rather than scored.";
-    list.replaceChildren(li);
+    list.replaceChildren(el("li", "empty", "Respond once. What you actually did appears here, measured rather than scored."));
     return;
   }
   list.replaceChildren(...[...session.evidence].reverse().map((e) => {
-    const li = document.createElement("li");
-    if (e.held) li.className = "held";
-    const head = document.createElement("span");
-    head.className = "title-4";
-    head.textContent = e.source === "sample"
-      ? `Question ${e.turn}: sample answer, nothing measured`
-      : e.pause_s === null ? `Question ${e.turn}: pause not measured`
-        : `Question ${e.turn}: paused ${e.pause_s} s${e.held ? `, target of ${e.target_s} s held` : `, target ${e.target_s} s`}`;
-    const detail = document.createElement("span");
-    detail.className = "caption-5 muted";
+    const li = el("li");
+    const head = e.source === "sample"
+      ? `Step ${e.turn}: sample response, nothing measured`
+      : e.pause_s === null ? `Step ${e.turn}: timing not measured` : `Step ${e.turn}: took ${e.pause_s} s before responding`;
     const bits = [];
     if (e.words) bits.push(`${e.words} words`);
     if (e.wpm) bits.push(`${e.wpm} words per minute`);
     if (e.longest_gap_s) bits.push(`longest gap ${e.longest_gap_s} s`);
     if (e.fillers) bits.push(`${e.fillers} filler${e.fillers > 1 ? "s" : ""}`);
     if (e.apologies) bits.push(`${e.apologies} apolog${e.apologies > 1 ? "ies" : "y"}`);
-    detail.textContent = bits.join(", ");
-    li.append(head, detail);
+    li.append(el("span", "title-4", head), el("span", "caption-5 muted", bits.join(", ")));
     return li;
   }));
 }
 
-/* ---------- Debrief and report ---------- */
+/* ---------- After the session, and the summary ---------- */
 $("debrief-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  showError("e-post");
+  if (!form.outcome) return showError("e-post", "Please answer whether the predicted outcome happened.");
   $("finish-btn").disabled = true;
   try {
-    accept(await api("finish", { token, belief_after: Number($("f-after").value) }));
-    renderReport();
+    accept(await api("finish", {
+      token,
+      belief_after: Number($("f-after").value),
+      post: { peak_distress: Number($("f-peak").value), symptoms: [...form.symptoms], outcome: form.outcome, note: $("f-note").value.trim() },
+    }));
+    if (session.status === "complete") renderReport();
+    else routeExit();
   } catch (err) {
-    $("d-note").textContent = err.message;
+    showError("e-post", err.message);
   } finally {
     $("finish-btn").disabled = false;
   }
 });
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 function renderReport() {
   const r = session.report;
   $("debrief").hidden = true;
   $("report").hidden = false;
+  $("r-date").textContent = new Date().toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  $("r-source").textContent = `Readings: ${session.data_label.toLowerCase()}`;
+  $("r-path").textContent = r.pathway.name;
+  $("r-why").textContent = r.pathway.why;
+
+  $("m-gad").textContent = `${r.gad.score}/21`;
+  $("m-band").textContent = `${r.gad.band} range`;
+  marker($("m-marker"), r.gad.score);
+  $("m-verdict").textContent = r.verdict.peak === "unavailable" ? "No reading" : cap(r.verdict.peak);
+  $("m-verdicts").replaceChildren(...r.verdicts.map((v) => {
+    const i = el("i");
+    i.dataset.v = v.label;
+    return i;
+  }));
+  $("m-verdict-source").textContent = r.verdict.source === "Simulated" ? "Simulated, until our model is integrated" : "From our anxiety model";
+  const peak = r.post.peak_distress;
+  $("m-peak").textContent = peak === null || peak === undefined ? "Not rated" : `${peak}/10`;
+  $("m-peak-bar").style.transform = `scaleX(${(peak || 0) / 10})`;
+
   $("r-pred").textContent = r.prediction;
   $("r-before").textContent = `${r.belief_before}%`;
   $("r-after").textContent = `${r.belief_after}%`;
+  $("r-outcome").textContent = { yes: "Yes", partly: "Partly", no: "No" }[r.post.outcome] || "Not answered";
   $("r-summary").textContent = r.summary;
-  $("r-mission").textContent = r.mission;
-  $("r-next").textContent = r.next_step;
-  const facts = [["Questions", r.questions_answered], ["Measured pauses held", r.measured_tests], ["Top difficulty", `${r.highest_level}/5`], ["Safety pauses", r.limit_events]];
-  $("r-facts").replaceChildren(...facts.map(([k, v]) => {
-    const wrap = document.createElement("div");
-    const dt = document.createElement("dt"); dt.textContent = k;
-    const dd = document.createElement("dd"); dd.textContent = v;
-    wrap.append(dt, dd);
-    return wrap;
+  $("r-insight").textContent = r.insight;
+
+  drawChart($("r-chart"), series, Math.max(series.length, 60));
+  $("r-chart-note").textContent = `${session.data_label}. Heart rate change from your baseline, in beats per minute. It shows how the agent responds, and isn't your real data.`;
+  $("r-gad").replaceChildren(...r.gad.items.map((item) => {
+    const li = el("li");
+    const pips = el("span", "gad-pips");
+    pips.setAttribute("aria-hidden", "true");
+    [1, 2, 3].forEach((n) => pips.append(el("i", n <= item.value ? "on" : "")));
+    const body = el("div");
+    body.append(el("span", "body-6", item.text), el("span", "caption-5 muted", item.answer));
+    li.append(body, pips);
+    return li;
   }));
-  $("r-note").textContent = `One demo session on ${session.data_label.toLowerCase()} data. It shows how the system runs, not that the method works.`;
+  const symptoms = r.post.symptoms || [];
+  $("r-symptoms").replaceChildren(...(symptoms.length ? symptoms.map((s) => el("span", "chip-static caption-4", s)) : [el("span", "body-6 muted", "Nothing selected")]));
+  $("r-note-label").hidden = !r.post.note;
+  $("r-note").hidden = !r.post.note;
+  $("r-note").textContent = r.post.note || "";
+  $("r-steps").replaceChildren(...[r.next_step, ...r.pathway.steps].filter((s, i, all) => all.indexOf(s) === i).map((s) => el("li", "", s)));
+  $("r-mission").textContent = r.mission;
   $("r-trail").replaceChildren(...[...session.trail].reverse().map(trailItem));
+  $("r-note-demo").textContent = "Screening and practice support from a student research prototype, not a diagnosis or treatment. This session used demo readings, so it shows how the system runs, not that the method works.";
   scrollTo(0, 0);
 }
-$("again-btn").addEventListener("click", () => location.assign("/room"));
+$("again-btn").addEventListener("click", () => location.assign("/checkin"));
+$("print-btn").addEventListener("click", () => print());
 
-/* ---------- Start ---------- */
 buildInject();
+buildPost();
 showStep("w-event", false);

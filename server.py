@@ -60,11 +60,30 @@ class SetupIn(BaseModel):
     days_until: int = Field(ge=1, le=60)
     prediction: str = Field(min_length=5, max_length=300)
     belief_before: int = Field(ge=0, le=100)
-    gad7: int = Field(ge=0, le=21)
+    gad_items: list[int] = Field(min_length=7, max_length=7)
     self_harm: bool
     heart_condition: bool
     crisis: bool
     consent: bool
+
+
+class VerdictIn(BaseModel):
+    """What the wearable app sends once our anxiety model is integrated."""
+
+    label: str = Field(pattern="^(low|moderate|high|unavailable)$")
+    probability: float | None = Field(default=None, ge=0, le=1)
+
+
+class PostIn(BaseModel):
+    peak_distress: int | None = Field(default=None, ge=0, le=10)
+    symptoms: list[str] = Field(default_factory=list, max_length=12)
+    outcome: str | None = Field(default=None, pattern="^(yes|partly|no)$")
+    note: str = Field(default="", max_length=400)
+
+
+class SpeakIn(BaseModel):
+    text: str = Field(min_length=1, max_length=400)
+    member: str = Field(max_length=20)
 
 
 class TokenIn(BaseModel):
@@ -77,6 +96,7 @@ class AnswerIn(TokenIn):
     pause_s: float | None = Field(default=None, ge=0, le=120)
     words: list[dict] | None = Field(default=None, max_length=1000)
     inject: str | None = None
+    model_verdict: VerdictIn | None = None
 
 
 class ResumeIn(TokenIn):
@@ -85,11 +105,7 @@ class ResumeIn(TokenIn):
 
 class FinishIn(TokenIn):
     belief_after: int = Field(ge=0, le=100)
-
-
-class SpeakIn(BaseModel):
-    text: str = Field(min_length=1, max_length=400)
-    member: str = Field(max_length=20)
+    post: PostIn = Field(default_factory=PostIn)
 
 
 def _load(token: str) -> Session:
@@ -105,7 +121,7 @@ def _reply(session: Session) -> dict:
 
 @app.get("/api/status")
 def status() -> dict:
-    return {"llm": team.mode, "plan_model": PLAN_MODEL, "fast_model": FAST_MODEL, "injectable": list(INJECTABLE)}
+    return {"llm": team.mode, "plan_model": PLAN_MODEL, "fast_model": FAST_MODEL, "injectable": list(INJECTABLE), "model_connected": False}
 
 
 @app.post("/api/session")
@@ -113,6 +129,8 @@ def create(setup: SetupIn, request: Request) -> dict:
     _limit(request)
     if not setup.consent:
         raise HTTPException(422, "Consent is required before starting.")
+    if any(v not in (0, 1, 2, 3) for v in setup.gad_items):
+        raise HTTPException(422, "GAD-7 answers must each be from 0 to 3.")
     session = Session(setup.model_dump(), team)
     session.start()
     return _reply(session)
@@ -135,7 +153,8 @@ def answer(body: AnswerIn, request: Request) -> dict:
     session = _load(body.token)
     metrics = speech_metrics(body.text, body.words)
     try:
-        session.answer(body.text, body.source, body.pause_s, metrics, body.inject)
+        verdict = body.model_verdict.model_dump() if body.model_verdict else None
+        session.answer(body.text, body.source, body.pause_s, metrics, body.inject, verdict)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
     return _reply(session)
@@ -165,7 +184,7 @@ def finish(body: FinishIn, request: Request) -> dict:
     _limit(request)
     session = _load(body.token)
     try:
-        session.finish(body.belief_after)
+        session.finish(body.belief_after, body.post.model_dump())
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
     return _reply(session)
@@ -194,7 +213,7 @@ def speak(body: SpeakIn, request: Request) -> Response:
         raise HTTPException(422, "This text can't be spoken.")
     audio = voice.speak(body.text, body.member)
     if audio is None:
-        raise HTTPException(503, "Panel voices aren't available.")
+        raise HTTPException(503, "Server voice isn't available.")
     return Response(content=audio, media_type="audio/wav")
 
 
