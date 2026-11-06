@@ -141,6 +141,7 @@
   #add, #due-card, .trace-box, #agent-again { display: none; }
   .next-box { background: #FFF; color: #000; border: 1px solid #999; }
   .next-box .row-gap { display: none; }
+  .open-item .row-gap { display: none; }
   .next-target { color: #000; }
   .clay { box-shadow: none; }
   .rec-card { break-inside: avoid; margin-top: 16px; }

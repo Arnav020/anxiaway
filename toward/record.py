@@ -30,7 +30,7 @@ MAX_OPEN = 5
 REVIEW_MODEL = PLAN_MODEL
 MIN_FOR_PATTERN = 5
 OVERESTIMATE_GAP = 20
-MAX_ROUNDS = 3
+MAX_ROUNDS = 4
 DEADLINE_S = 15.0
 DAY_MS = 86_400_000
 
@@ -313,10 +313,13 @@ def _groq_review(box: Toolbox, client: groq.Groq, evidence: dict) -> None:
     for _ in range(MAX_ROUNDS):
         if time.monotonic() > deadline or box.result:
             return
-        reply = client.chat.completions.create(
-            model=REVIEW_MODEL, messages=messages, tools=TOOLS, tool_choice="required",
-            reasoning_effort="low", max_completion_tokens=700,
-        ).choices[0].message
+        try:
+            reply = client.chat.completions.create(
+                model=REVIEW_MODEL, messages=messages, tools=TOOLS, tool_choice="required",
+                reasoning_effort="low", max_completion_tokens=700,
+            ).choices[0].message
+        except groq.BadRequestError:
+            continue  # The model sometimes writes a malformed tool call. Asking again usually works.
         calls = reply.tool_calls or []
         if not calls:
             return
