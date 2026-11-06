@@ -485,6 +485,14 @@ def test_stop_is_never_rate_limited(monkeypatch):
     assert http.post("/api/stop", json={"token": view["token"]}).status_code == 200
 
 
+def test_unknown_page_is_a_404_even_without_public_files(monkeypatch, tmp_path):
+    http, server = client(monkeypatch)
+    assert http.get("/does-not-exist").status_code == 404
+    monkeypatch.setattr(server, "PUBLIC", tmp_path)
+    response = http.get("/does-not-exist")
+    assert response.status_code == 404 and "can't find" in response.text
+
+
 def test_speak_refuses_text_the_output_check_rejects(monkeypatch):
     http, _ = client(monkeypatch)
     assert http.post("/api/speak", json={"text": "You seem anxious.", "member": "Dr Rao"}).status_code == 422

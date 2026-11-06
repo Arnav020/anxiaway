@@ -12,7 +12,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,14 @@ from toward.state import BadToken, seal, unseal
 ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 MAX_AUDIO_BYTES = 4 * 1024 * 1024
+NOT_FOUND_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Page not found | Toward</title>
+<meta name="robots" content="noindex"><link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/site.css"></head>
+<body><main class="notfound"><div class="notfound-face" aria-hidden="true"><i></i><i></i><b></b></div>
+<h1 class="heading-3">The panel can't find that page.</h1>
+<p class="body-3 muted">It may have moved, or the address may be wrong. Take your time.</p>
+<a class="btn btn-cta btn-lg" href="/">Back to home</a></main></body></html>"""
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
 app = FastAPI(title="Toward", docs_url=None, redoc_url=None)
@@ -204,7 +212,15 @@ def page(page: str) -> FileResponse:
     candidate = PUBLIC / page
     if candidate.is_file() and candidate.parent == PUBLIC:
         return FileResponse(candidate)
-    return FileResponse(PUBLIC / "404.html", status_code=404)
+    return _not_found()
+
+
+def _not_found():
+    # On serverless hosts public/ lives on the CDN, so it may not exist beside this function.
+    page_file = PUBLIC / "404.html"
+    if page_file.is_file():
+        return FileResponse(page_file, status_code=404)
+    return HTMLResponse(NOT_FOUND_HTML, status_code=404)
 
 
 if PUBLIC.is_dir():
