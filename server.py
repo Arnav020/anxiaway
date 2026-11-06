@@ -12,12 +12,12 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from toward.agents import FAST_MODEL, PLAN_MODEL, AgentTeam, Voice, speech_metrics
-from toward.governor import output_is_safe
+from toward.governor import Action, check_entry, output_is_safe
 from toward.replay import INJECTABLE
 from toward.session import Session
 from toward.state import BadToken, seal, unseal
@@ -82,8 +82,16 @@ class PostIn(BaseModel):
 
 
 class SpeakIn(BaseModel):
+    token: str = Field(max_length=200_000)
     text: str = Field(min_length=1, max_length=400)
     member: str = Field(max_length=20)
+
+
+class ScreenIn(BaseModel):
+    gad_items: list[int] = Field(min_length=7, max_length=7)
+    self_harm: bool = False
+    heart_condition: bool = False
+    crisis: bool = False
 
 
 class TokenIn(BaseModel):
@@ -122,6 +130,17 @@ def _reply(session: Session) -> dict:
 @app.get("/api/status")
 def status() -> dict:
     return {"llm": team.mode, "plan_model": PLAN_MODEL, "fast_model": FAST_MODEL, "injectable": list(INJECTABLE), "model_connected": False}
+
+
+@app.post("/api/screen")
+def screen(body: ScreenIn, request: Request) -> dict:
+    """Fixed code only, so anyone who needs support gets it before any consent or language model."""
+    _limit(request)
+    if any(v not in (0, 1, 2, 3) for v in body.gad_items):
+        raise HTTPException(422, "GAD-7 answers must each be from 0 to 3.")
+    decision = check_entry(sum(body.gad_items), body.self_harm, body.heart_condition, body.crisis)
+    status = {Action.CRISIS: "crisis", Action.REFER: "referred"}.get(decision.action, "allow")
+    return {"status": status, "exit_message": decision.message}
 
 
 @app.post("/api/session")
@@ -193,6 +212,9 @@ def finish(body: FinishIn, request: Request) -> dict:
 @app.post("/api/transcribe")
 async def transcribe(request: Request) -> dict:
     _limit(request)
+    # Only a session that is waiting for a response may use speech recognition.
+    if _load(request.headers.get("x-session-token", "")).status != "practice":
+        raise HTTPException(409, "This session isn't waiting for a response.")
     audio = await request.body()
     if not audio:
         raise HTTPException(422, "No audio received.")
@@ -209,7 +231,9 @@ async def transcribe(request: Request) -> dict:
 @app.post("/api/speak")
 def speak(body: SpeakIn, request: Request) -> Response:
     _limit(request)
-    if not output_is_safe(body.text):
+    # Only the guide's current line can be spoken, so this can't be used as a free voice service.
+    question = _load(body.token).question
+    if not question or question["line"] != body.text or not output_is_safe(body.text):
         raise HTTPException(422, "This text can't be spoken.")
     audio = voice.speak(body.text, body.member)
     if audio is None:
@@ -221,6 +245,11 @@ def speak(body: SpeakIn, request: Request) -> Response:
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(PUBLIC / "index.html")
+
+
+@app.get("/room", include_in_schema=False)
+def old_room() -> RedirectResponse:
+    return RedirectResponse("/checkin", status_code=308)
 
 
 @app.get("/{page}", include_in_schema=False)

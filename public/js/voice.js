@@ -15,6 +15,8 @@ export class Voices {
     this.current = null;
     this.usedBrowser = false;
     this.onAmp = () => {};
+    this.getToken = () => null;
+    this.serverFails = 0;
     this.ampTimer = null;
     this.tier = "Browser voice";
   }
@@ -96,12 +98,16 @@ export class Voices {
   async _server(line, member) {
     if (!this.serverOk || !this.ctx) return null;
     try {
-      const res = await fetch("/api/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: line, member }) });
-      if (!res.ok) { this.serverOk = false; return null; }
+      const res = await fetch("/api/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: this.getToken(), text: line, member }) });
+      if (!res.ok) throw new Error("voice");
+      this.serverFails = 0;
       this.tier = "Orpheus voice";
       return await this.ctx.decodeAudioData(await res.arrayBuffer());
     } catch {
-      this.serverOk = false;
+      // One failure may be a blip. Two in a row, and the on device voice gets ready instead.
+      this.serverFails += 1;
+      if (this.serverFails >= 2) this.serverOk = false;
+      this.preloadKokoro();
       return null;
     }
   }

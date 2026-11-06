@@ -122,11 +122,11 @@
       <span class="caption-3 eyebrow">Anxiety check-in · Step 6 of 6</span>
       <h1 class="heading-3">Where should readings come from?</h1>
       <p class="body-3 muted">The agent uses a live reading and verdict to decide what to do next.</p>
-      <div class="source source-off clay" aria-disabled="true">
+      <button class="source source-off clay" id="connect-app" type="button" aria-haspopup="dialog">
         <span class="source-icon"><i class="icon i24" style="--i:url(/icons/heartbeat.svg)"></i></span>
-        <div><strong class="title-3">Toward wearable and app</strong><p class="body-6 muted">ECG, PPG, skin conductance and motion from our prototype, read by our multimodal anxiety model.</p></div>
+        <span class="source-text"><strong class="title-3">Toward wearable and app</strong><span class="body-6 muted">ECG, PPG, skin conductance and motion from our prototype, read by our multimodal anxiety model.</span></span>
         <span class="soon caption-3">Integrating soon</span>
-      </div>
+      </button>
       <div class="source source-on clay">
         <span class="source-icon"><i class="icon i24" style="--i:url(/icons/waveform.svg)"></i></span>
         <div><strong class="title-3">Demo stream</strong><p class="body-6 muted">A synthetic recording and a simulated verdict, so you can see how the agent responds. Not your real data.</p></div>
@@ -204,7 +204,7 @@
           <textarea id="answer" rows="1" maxlength="1500" placeholder="Type your response"></textarea>
           <div class="answer-actions">
             <button class="btn btn-accent" id="mic-btn" type="button"><i class="icon i20" id="mic-icon" style="--i:url(/icons/microphone.svg)"></i><span id="mic-label">Use my voice</span></button>
-            <button class="btn btn-white" id="sample-btn" type="button">Sample response</button>
+            <button class="btn btn-white" id="sample-btn" type="button">Sample (demo)</button>
             <button class="btn btn-cta" id="send-btn" type="submit">Respond<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
           </div>
         </form>
@@ -351,10 +351,13 @@
         <div class="chips-static" id="r-symptoms"></div>
         <h3 class="caption-4 muted" id="r-note-label">Your note</h3>
         <p class="body-3" id="r-note"></p>
+        <h3 class="caption-4 muted">Measured during the session</h3>
+        <p class="body-6" id="r-measured"></p>
       </article>
       <article class="panel-card next-card clay">
         <h2 class="title-2">Your next steps</h2>
         <ol class="next-steps body-5" id="r-steps"></ol>
+        <div class="replan"><span class="caption-3 muted">The agent's updated next session</span><p class="title-3" id="r-practice"></p><button class="btn btn-white btn-sm no-print" id="ics-btn" type="button">Add a check-in to my calendar</button></div>
         <div class="mission"><span class="caption-3">This week's real world test</span><p class="title-3" id="r-mission"></p></div>
       </article>
     </div>

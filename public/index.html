@@ -45,7 +45,7 @@
     <div class="hero-copy">
       <span class="theme-chip caption-3">Agentic AI for Healthcare &amp; Human Well-being</span>
       <h1 class="heading-1 hero-title">Understand your anxiety.<br>Then act on it.</h1>
-      <p class="title-1 hero-sub">A care agent that combines your GAD-7, wearable readings and an anxiety model, decides which step fits, and guides you through it safely.</p>
+      <p class="title-1 hero-sub">A care agent that combines your GAD-7, wearable readings and an anxiety model, then tests what your anxiety predicts, one safe step at a time.</p>
       <div class="hero-actions">
         <a class="btn btn-cta btn-lg" href="/checkin">Start a check-in<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
         <a class="hero-more body-5" href="#how">See how it works</a>
@@ -66,15 +66,15 @@
       <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/heartbeat.svg)"></i><h3 class="heading-6">Healthcare monitoring</h3><p class="body-6 muted">Our wearable design reads ECG, PPG, skin conductance and motion, and our model turns them into an anxiety-like verdict. The demo uses a labelled simulation until that's integrated.</p></div>
       <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/lightning.svg)"></i><h3 class="heading-6">Early detection</h3><p class="body-6 muted">GAD-7 screening at the door, then rising arousal spotted against your own baseline, while movement and bad readings are rejected. It flags, and never diagnoses.</p></div>
       <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/hand-palm.svg)"></i><h3 class="heading-6">Accessibility</h3><p class="body-6 muted">Voice or text, at any hour, in a browser. Support between appointments, and a clear referral whenever a person is the better answer.</p></div>
-      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/path.svg)"></i><h3 class="heading-6">Rehabilitation</h3><p class="body-6 muted">A graded ladder rebuilds what anxiety took away, step by step, following the structure of exposure based approaches.</p></div>
-      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/target.svg)"></i><h3 class="heading-6">Personalised well-being</h3><p class="body-6 muted">Your screening, your baseline, your feared prediction and your care plan. You leave with a summary to keep or share with a counsellor.</p></div>
-      <div class="fit-card fit-agent clay reveal"><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><h3 class="heading-6">And truly agentic</h3><p class="body-6">It assesses, plans over days, chooses tactics, acts, and replans from evidence, inside safety limits it can't override.</p></div>
+      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/path.svg)"></i><h3 class="heading-6">Rehabilitation</h3><p class="body-6 muted">A graded ladder helps you step back into what anxiety made you avoid, following the structure of exposure based approaches.</p></div>
+      <div class="fit-card clay reveal"><i class="icon i24" style="--i:url(/icons/target.svg)"></i><h3 class="heading-6">Personalised well-being</h3><p class="body-6 muted">Your screening, your baseline, your feared prediction and your practice plan. You leave with a summary to keep or share with a counsellor.</p></div>
+      <div class="fit-card fit-agent clay reveal"><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><h3 class="heading-6">And truly agentic</h3><p class="body-6">It assesses, builds a graded plan, chooses tactics, acts, and updates your next step from what happened, inside safety limits it can't override.</p></div>
     </div>
   </section>
 
   <section class="section" id="problem">
     <span class="eyebrow caption-3 reveal">The anxiety problem</span>
-    <h2 class="heading-3 section-title reveal">Most people with anxiety never get the care that helps.</h2>
+    <h2 class="heading-3 section-title reveal">Only about 1 in 4 people with anxiety receive treatment.</h2>
     <p class="title-2 muted section-lead reveal">Anxiety disorders are the most common mental disorders in the world. Avoidance keeps anxiety going, and step by step practice is a core part of treatment, yet it's hard to access between appointments, or without one.</p>
     <div class="stats">
       <a class="stat clay reveal" href="https://www.who.int/news-room/fact-sheets/detail/anxiety-disorders" target="_blank" rel="noopener"><strong class="heading-2 mono">470M</strong><span class="body-5">people had an anxiety disorder in 2023</span><span class="caption-5 muted">WHO fact sheet</span></a>
@@ -102,7 +102,7 @@
   <section class="section connect" id="connect">
     <div class="connect-head">
       <span class="eyebrow caption-3 reveal">Reading and verdict</span>
-      <span class="soon-tag caption-3 reveal">App and model: integrating soon</span>
+      <button class="soon-tag caption-3 reveal" id="connect-open" type="button" aria-haspopup="dialog">App and model: integrating soon</button>
     </div>
     <h2 class="heading-3 section-title reveal">Designed to act on our model's verdict.</h2>
     <ol class="flow-line reveal">
@@ -124,11 +124,14 @@
         <li><strong>Working prototype.</strong> ECG, PPG, skin conductance and motion on an ESP32, streaming to a mobile app.</li>
         <li><strong>Multimodal design.</strong> A per sensor encoder and cross attention fusion design, with availability masks so a lost sensor lowers confidence instead of breaking things.</li>
         <li><strong>Clinical grounding.</strong> GAD-7 screening, and careful language: an anxiety-like state, never a diagnosis.</li>
-        <li><strong>Honest status.</strong> Our detection model is still being validated, so this demo uses transparent rules on synthetic data, not the model's output.</li>
+        <li><strong>Honest status.</strong> Our detection model is still being trained and validated, so this demo uses transparent rules on synthetic data, not the model's output.</li>
       </ul>
     </div>
     <figure class="research-photo clay reveal">
-      <img src="/img/prototype.jpg" alt="The team's wearable prototype: a black pouch holding the electronics, with ECG electrodes and sensor leads.">
+      <button class="photo-open" id="proto-open" type="button" aria-haspopup="dialog" data-caption="Our actual capstone prototype. ECG, PPG, skin conductance and motion sensors on an ESP32.">
+        <img src="/img/prototype.jpg" alt="The team's wearable prototype: a black pouch holding the electronics, with ECG electrodes and sensor leads.">
+        <span class="photo-hint caption-3"><i class="icon i16" style="--i:url(/icons/arrows-out.svg)"></i>View full photo</span>
+      </button>
       <figcaption class="caption-4 muted">Our actual capstone prototype. Unpolished, and real.</figcaption>
     </figure>
   </section>
@@ -177,6 +180,24 @@
     <p class="caption-5 muted reveal">Rules and thresholds are starting design values. They haven't been clinically validated and still need review by a counsellor.</p>
   </section>
 
+  <section class="section" id="compare">
+    <span class="eyebrow caption-3 reveal">Prior work</span>
+    <h2 class="heading-3 section-title reveal">We stand on real research.</h2>
+    <p class="title-2 muted section-lead reveal">Each part of this exists somewhere. We didn't find a system combining all of it. That's a claim about our search, not a claim to be first.</p>
+    <div class="table-wrap clay reveal">
+      <table class="compare">
+        <thead><tr><th scope="col">System</th><th scope="col">Anxiety screening</th><th scope="col">LLM dialogue</th><th scope="col">Body signals change the session</th><th scope="col">Belief change measured</th><th scope="col">Real world missions</th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><a href="https://arxiv.org/html/2506.03520" target="_blank" rel="noopener">VChatter, 2025</a></th><td class="y">Yes</td><td class="y">Yes</td><td>No</td><td>No</td><td>No</td></tr>
+          <tr><th scope="row"><a href="https://arxiv.org/abs/2504.14095" target="_blank" rel="noopener">RL exposure, 2025</a></th><td>No</td><td>No</td><td class="y">Yes</td><td>No</td><td>No</td></tr>
+          <tr><th scope="row"><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11589380" target="_blank" rel="noopener">VR biofeedback trial, 2024</a></th><td>Not the focus</td><td>No</td><td>No, user adjusts</td><td>No</td><td>No</td></tr>
+          <tr class="us"><th scope="row">Toward</th><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes, in replay</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption-5 muted reveal">Based on the papers as we read them. Whether body adaptive practice helps people is an open question, and one this project would test.</p>
+  </section>
+
   <section class="section" id="status">
     <span class="eyebrow caption-3 reveal">Honest status</span>
     <h2 class="heading-3 section-title reveal">What's real today.</h2>
@@ -213,7 +234,7 @@
   </section>
 
   <section class="final clay">
-    <h2 class="heading-2">Five minutes to understand<br>where your anxiety stands.</h2>
+    <h2 class="heading-2">Start with a check-in.<br>See where your anxiety stands.</h2>
     <a class="btn btn-cta btn-lg" href="/checkin">Start a check-in<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
     <p class="caption-4">A research prototype, not therapy or diagnosis.</p>
   </section>

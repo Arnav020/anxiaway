@@ -306,6 +306,7 @@ class Session:
             "outcome": post.get("outcome"), "gad_band": band, "concerns": care.gad_concerns(self.setup["gad_items"]),
             "peak_distress_band": None if peak_distress is None else "high" if peak_distress >= 7 else "medium" if peak_distress >= 4 else "low",
             "symptoms": post.get("symptoms") or [], "note": note, "verdict_peak": summary["peak"], "verdict_source": summary["source"],
+            "plan_decision": decision, "next_ladder_step": self._next_rung(),
         })
         ms = round((time.perf_counter() - started) * 1000)
         self._log("Difficulty policy", f"Plan decision: {decision.replace('_', ' ')} (decided in fixed code)")
@@ -317,11 +318,22 @@ class Session:
             "highest_level": max((t["level"] for t in self.turn_log), default=self.level),
             "limit_events": self.limit_events, "ended_early": self.ended_early,
             "decision": decision, "summary": debrief.summary, "insight": debrief.insight,
-            "next_step": NEXT_STEP_TEXT[decision], "mission": debrief.mission, "source": source,
+            "next_step": NEXT_STEP_TEXT[decision], "mission": debrief.mission, "next_practice": debrief.next_practice,
+            "next_day": self._next_day(decision), "evidence": self.evidence, "source": source,
             "post": post, "verdict": summary, "verdicts": self.verdicts,
             "gad": self._gad_view(), "pathway": care.PATHWAYS[band],
         }
         self.status = "complete"
+
+    def _next_rung(self) -> str | None:
+        steps = (self.plan or {}).get("steps") or []
+        return f"{steps[1]['title']}: {steps[1]['test']}" if len(steps) > 1 else None
+
+    def _next_day(self, decision: str) -> int:
+        steps = (self.plan or {}).get("steps") or []
+        if decision == "advance" and len(steps) > 1:
+            return max(1, steps[1]["day"] - steps[0]["day"])
+        return 14 if decision == "pause_plan" else 2
 
     def _gad_view(self) -> dict:
         items = self.setup["gad_items"]

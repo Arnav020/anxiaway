@@ -1,7 +1,12 @@
 import { Panel } from "/js/panel.js";
+import { openConnect } from "/js/connect.js";
+import { wirePhotos } from "/js/lightbox.js";
 
 const $ = (id) => document.getElementById(id);
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+document.getElementById("connect-open").addEventListener("click", openConnect);
+wirePhotos();
 
 /* Mobile menu */
 const menuBtn = $("menu-btn");

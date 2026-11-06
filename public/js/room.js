@@ -1,5 +1,6 @@
 import { Panel } from "/js/panel.js";
 import { Voices } from "/js/voice.js";
+import { openConnect } from "/js/connect.js";
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -35,7 +36,7 @@ const NODE_NAMES = {
   governor: "Safety Governor", signal: "Signal Layer", model: "Anxiety model", policy: "Difficulty policy",
   director: "Director", scene: "Guide agent", check: "Output check", planner: "Care planner",
 };
-const INJECT_LABELS = { auto: "Scripted", calm: "Calm", rising: "Rising", high: "High", limit: "Safety limit", movement: "Movement", sensor_loss: "ECG lost" };
+const INJECT_LABELS = { auto: "Next in script", calm: "Calm", rising: "Rising", high: "High", limit: "Safety limit", movement: "Movement", sensor_loss: "ECG lost" };
 const SAMPLE_ANSWERS = [
   "I notice my chest feels tight and I want to find a reason to leave.",
   "I expect everyone to notice that I don't know what to say.",
@@ -63,6 +64,8 @@ let answerOpenAt = null;
 let firstInputAt = null;
 let useVoice = false;
 voices.onAmp = (v) => room?.setAmp(v);
+voices.getToken = () => token;
+$("connect-app").addEventListener("click", openConnect);
 
 async function api(path, body) {
   const res = await fetch(`/api/${path}`, {
@@ -104,6 +107,8 @@ function showStep(id, push = true) {
   $("wizard").classList.toggle("wide", id === "w-plan");
   if (push) history.pushState({ step: id }, "");
   scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+  const heading = $(id).querySelector("h1");
+  if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
 }
 function goBack() {
   const index = STEPS.indexOf(current);
@@ -118,6 +123,9 @@ addEventListener("popstate", (e) => {
     openLeave();
     return;
   }
+  // After a session, back mustn't land on a blank state.
+  if (!$("debrief").hidden) { history.pushState({ stage: true }, ""); return; }
+  if (!$("report").hidden || !$("exit").hidden) { location.href = "/"; return; }
   if (e.state?.step && !$("wizard").hidden && e.state.step !== "w-loading") showStep(e.state.step, false);
 });
 history.replaceState({ step: "w-event" }, "");
@@ -175,6 +183,7 @@ function renderResult() {
   const score = gadScore();
   $("res-score").textContent = score;
   $("res-band").textContent = `${bandOf(score)} anxiety symptoms`;
+  $("result-next").firstChild.textContent = score >= 15 ? "See support options" : "Continue";
   marker($("res-marker"), score);
   const ranked = form.gad.map((v, i) => [v, i]).filter(([v]) => v >= 1).sort((a, b) => b[0] - a[0]).slice(0, 3);
   $("res-concerns").replaceChildren(...(ranked.length
@@ -188,7 +197,17 @@ $("w-gad").addEventListener("submit", (e) => {
   renderResult();
   showStep("w-result");
 });
-$("result-next").addEventListener("click", () => showStep("w-safety"));
+async function screen() {
+  const result = await api("screen", { gad_items: form.gad, self_harm: !!form.self_harm, heart_condition: !!form.heart_condition, crisis: !!form.crisis });
+  if (result.status === "allow") return true;
+  session = { status: result.status, exit_message: result.exit_message };
+  routeExit();
+  return false;
+}
+$("result-next").addEventListener("click", async () => {
+  if (gadScore() >= 15) { await screen(); return; }
+  showStep("w-safety");
+});
 
 /* Safety */
 const yes = { "q-harm": "self_harm", "q-heart": "heart_condition", "q-crisis": "crisis" };
@@ -199,11 +218,15 @@ function setYn(id, value) {
 Object.keys(yes).forEach((id) => {
   $(id).querySelectorAll("button").forEach((b) => b.addEventListener("click", () => setYn(id, b.dataset.v === "true")));
 });
-$("w-safety").addEventListener("submit", (e) => {
+$("w-safety").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (Object.values(yes).some((k) => form[k] === null)) return showError("e-safety", "Please answer all three questions.");
   showError("e-safety");
-  showStep("w-consent");
+  try {
+    if (await screen()) showStep("w-consent");
+  } catch (err) {
+    showError("e-safety", err.message);
+  }
 });
 
 /* Consent is its own moment */
@@ -216,7 +239,6 @@ $("agree").addEventListener("click", () => setConsent(!form.consent));
 $("w-consent").addEventListener("submit", (e) => {
   e.preventDefault();
   if (!form.consent) return;
-  voices.preloadKokoro();
   showStep("w-connect");
 });
 
@@ -383,8 +405,11 @@ function updateMeter() {
   const s = ((firstInputAt ?? performance.now()) - answerOpenAt) / 1000;
   $("ring-text").textContent = s.toFixed(1);
   $("ring-fg").style.strokeDashoffset = String(176 * (1 - Math.min(1, s / target())));
-  $("meter").classList.toggle("held", s >= target());
-  $("meter-title").textContent = firstInputAt ? `You took ${s.toFixed(1)} seconds before responding` : "Take your time. There's no rush.";
+  const pauseTest = /paus|silen/i.test(`${session.prediction} ${session.plan.steps[0].test}`);
+  $("meter").classList.toggle("held", pauseTest && s >= target());
+  if (firstInputAt) $("meter-title").textContent = `You took ${s.toFixed(1)} seconds before responding`;
+  else if (pauseTest) $("meter-title").textContent = s >= target() ? "That's your pause. Respond when ready." : `Try holding ${target()} seconds before you respond`;
+  else $("meter-title").textContent = "Take your time. There's no rush.";
 }
 function openAnswerWindow() {
   answerOpenAt = performance.now();
@@ -521,7 +546,7 @@ async function finishListening() {
   $("meter-title").textContent = "Transcribing what you said";
   $("meter-sub").textContent = "";
   try {
-    const res = await fetch("/api/transcribe", { method: "POST", headers: { "Content-Type": (blob.type || "audio/webm").split(";")[0] }, body: blob });
+    const res = await fetch("/api/transcribe", { method: "POST", headers: { "Content-Type": (blob.type || "audio/webm").split(";")[0], "X-Session-Token": token }, body: blob });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Speech recognition failed. Type your response instead.");
     const heard = await res.json();
     if (!heard.text) throw new Error("We didn't catch that. Try again, or type your response.");
@@ -715,15 +740,19 @@ async function stopSession() {
   renderTrail();
   route();
 }
-$("stop-btn").addEventListener("click", stopSession);
+function backToPlan() {
+  leaveStage();
+  $("wizard").hidden = false;
+  showStep("w-plan");
+}
+$("stop-btn").addEventListener("click", () => {
+  // Before the session has started, there's nothing to end or summarise.
+  if (!$("calibrate").hidden) backToPlan();
+  else stopSession();
+});
 function openLeave() { if (!$("leave-dlg").open) $("leave-dlg").showModal(); }
 $("leave-btn").addEventListener("click", () => {
-  if (!$("calibrate").hidden) {
-    leaveStage();
-    $("wizard").hidden = false;
-    showStep("w-plan");
-    return;
-  }
+  if (!$("calibrate").hidden) { backToPlan(); return; }
   openLeave();
 });
 $("leave-stay").addEventListener("click", () => $("leave-dlg").close());
@@ -982,12 +1011,36 @@ function renderReport() {
   $("r-note").textContent = r.post.note || "";
   $("r-steps").replaceChildren(...[r.next_step, ...r.pathway.steps].filter((s, i, all) => all.indexOf(s) === i).map((s) => el("li", "", s)));
   $("r-mission").textContent = r.mission;
+  $("r-practice").textContent = r.next_practice;
+  const measured = r.evidence.filter((e) => e.source !== "sample" && e.pause_s !== null);
+  const fillers = r.evidence.reduce((n, e) => n + (e.fillers || 0), 0);
+  const apologies = r.evidence.reduce((n, e) => n + (e.apologies || 0), 0);
+  $("r-measured").textContent = measured.length
+    ? `On average you took ${(measured.reduce((n, e) => n + e.pause_s, 0) / measured.length).toFixed(1)} seconds before responding, across ${measured.length} response${measured.length > 1 ? "s" : ""}. Fillers: ${fillers}. Apologies: ${apologies}. Measured, not scored.`
+    : "Nothing was measured in this session.";
   $("r-trail").replaceChildren(...[...session.trail].reverse().map(trailItem));
   $("r-note-demo").textContent = "Screening and practice support from a student research prototype, not a diagnosis or treatment. This session used demo readings, so it shows how the system runs, not that the method works.";
   scrollTo(0, 0);
 }
 $("again-btn").addEventListener("click", () => location.assign("/checkin"));
 $("print-btn").addEventListener("click", () => print());
+$("ics-btn").addEventListener("click", () => {
+  // A real next action: the check-in lands in the person's own calendar. Nothing is stored by us.
+  const r = session.report;
+  const start = new Date(Date.now() + r.next_day * 86400000);
+  start.setHours(18, 0, 0, 0);
+  const stamp = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const escape = (t) => t.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, " ");
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Toward//Anxiety check-in//EN", "BEGIN:VEVENT",
+    `UID:${Date.now()}@toward`, `DTSTAMP:${stamp(new Date())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start.getTime() + 900000))}`,
+    "SUMMARY:Toward anxiety check-in", `DESCRIPTION:${escape(`${r.next_practice} Rate your prediction again: ${r.prediction}`)}`,
+    "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
+  link.download = "toward-check-in.ics";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+});
 
 buildInject();
 buildPost();

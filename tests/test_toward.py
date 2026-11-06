@@ -378,7 +378,7 @@ def test_malformed_llm_output_falls_back():
 
 
 def test_debrief_with_invented_numbers_is_rejected():
-    payload = {"summary": "Your belief fell by 40 percent.", "insight": "i", "mission": "Ask one question."}
+    payload = {"summary": "Your belief fell by 40 percent.", "insight": "i", "mission": "Ask one question.", "next_practice": "Try again."}
     team = AgentTeam(llm=GroqAgents(client=fake_client(json.dumps(payload))))
     facts = dict(event="Viva", prediction="p", belief_before=80, belief_after=40, belief_direction="lower", ended_early=False)
     debrief, source = team.debrief(facts)
@@ -492,6 +492,51 @@ def test_unknown_page_is_a_404_even_without_public_files(monkeypatch, tmp_path):
     monkeypatch.setattr(server, "PUBLIC", tmp_path)
     response = http.get("/does-not-exist")
     assert response.status_code == 404 and "can't find" in response.text
+
+
+def test_a_line_using_a_guide_name_is_retried_then_scripted():
+    from toward.agents import GroqAgents
+
+    llm = GroqAgents(client=object())
+    lines = iter(["Hey Asha, what is your idea?", "What is your idea?"])
+    llm._call = lambda *a: type("R", (), {"line": next(lines)})()
+    facts = dict.fromkeys(("event", "difficulty", "tactic", "speaker", "last_question", "user_answer"), "x")
+    assert llm.scene(facts) == "What is your idea?"
+    llm._call = lambda *a: type("R", (), {"line": "Tom, go on?"})()
+    assert llm.scene(facts) is None
+
+
+def test_screen_routes_support_before_consent_or_any_llm(monkeypatch):
+    http, server = client(monkeypatch)
+    calls = []
+    server.team.plan = lambda facts: calls.append(facts)
+    severe = http.post("/api/screen", json={"gad_items": [3, 3, 3, 3, 2, 2, 2]}).json()
+    crisis = http.post("/api/screen", json={"gad_items": [0] * 7, "crisis": True}).json()
+    fine = http.post("/api/screen", json={"gad_items": [1] * 7}).json()
+    assert severe["status"] == "referred" and crisis["status"] == "crisis" and "14416" in crisis["exit_message"]
+    assert fine["status"] == "allow" and not calls
+
+
+def test_voice_endpoints_only_work_inside_a_session(monkeypatch):
+    http, server = client(monkeypatch)
+    spoken = []
+    monkeypatch.setattr(server.voice, "speak", lambda text, member: spoken.append(text) or b"wav")
+    assert http.post("/api/speak", json={"token": "x", "text": "Any free text", "member": "Tom Ellis"}).status_code == 409
+    assert http.post("/api/transcribe", content=b"audio", headers={"Content-Type": "audio/webm"}).status_code == 409
+    view = http.post("/api/session", json=SETUP).json()
+    view = http.post("/api/calibrate", json={"token": view["token"]}).json()
+    line = view["question"]["line"]
+    assert http.post("/api/speak", json={"token": view["token"], "text": "Something else", "member": "Tom Ellis"}).status_code == 422
+    assert http.post("/api/speak", json={"token": view["token"], "text": line, "member": "Tom Ellis"}).status_code == 200
+    assert spoken == [line]
+
+
+def test_summary_includes_a_replanned_next_step(monkeypatch):
+    http, _ = client(monkeypatch)
+    view = http.post("/api/session", json=SETUP).json()
+    view = http.post("/api/stop", json={"token": view["token"]}).json()
+    report = http.post("/api/finish", json={"token": view["token"], "belief_after": 60}).json()["report"]
+    assert report["next_practice"] and report["next_day"] >= 1
 
 
 def test_gad_answers_are_validated_and_used(monkeypatch):
