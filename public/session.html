@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guided session | Toward</title>
+<meta name="description" content="Rehearse a situation your anxiety makes you avoid, by voice or text, with AI guides and fixed safety rules. A research prototype, not therapy.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F2F1ED">
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/room.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip" href="#app">Skip to content</a>
+
+<main id="app">
+  <div class="wizard" id="wizard">
+    <header class="wiz-top">
+      <button class="btn btn-white btn-sm" id="wiz-back" type="button"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i><span id="wiz-back-label">Practice</span></button>
+      <div class="wiz-progress" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1" id="wiz-bar" aria-label="Progress through the setup"><span></span><span></span><span></span></div>
+      <button class="btn btn-plain btn-sm" id="wiz-sample" type="button">Use a sample situation</button>
+    </header>
+
+    <form class="wiz-step" id="w-event" novalidate>
+      <span class="caption-3 eyebrow">Guided session · Step 1 of 3</span>
+      <h1 class="heading-3">Which situation would you like to practise?</h1>
+      <p class="body-3 muted">Pick something real that you've been dreading or avoiding. Everyday situations count as much as big ones.</p>
+      <p class="body-5 pred-banner" id="pred-banner" hidden></p>
+      <div class="chips" id="event-chips">
+        <button class="chip" type="button">Going somewhere crowded</button>
+        <button class="chip" type="button">Making a difficult phone call</button>
+        <button class="chip" type="button">Meeting new people</button>
+        <button class="chip" type="button">Eating or sitting alone in public</button>
+        <button class="chip" type="button">Seeing a doctor or dentist</button>
+        <button class="chip" type="button">Saying no to someone</button>
+        <button class="chip" type="button">Speaking up in class or meetings</button>
+        <button class="chip" type="button">An exam, viva or interview</button>
+      </div>
+      <label class="field"><span class="title-4">In your own words</span><input id="f-event" maxlength="120" placeholder="The situation that makes you anxious" autocomplete="off"></label>
+      <label class="field"><span class="title-4">When would you like to feel ready? <output class="mono" id="o-days">In 7 days</output></span>
+        <input id="f-days" type="range" min="1" max="30" value="7"></label>
+      <p class="error" id="e-event" role="alert" hidden></p>
+      <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+    </form>
+
+    <form class="wiz-step" id="w-fear" novalidate hidden>
+      <span class="caption-3 eyebrow">Guided session · Step 2 of 3</span>
+      <h1 class="heading-3">What does your anxiety say will happen?</h1>
+      <p class="body-3 muted">Be specific. An exact prediction is one you can actually check later.</p>
+      <div class="chips" id="fear-chips">
+        <button class="chip" type="button">People will stare at me and think something is wrong with me.</button>
+        <button class="chip" type="button">I'll freeze and everyone will notice.</button>
+        <button class="chip" type="button">My anxiety will get so bad that I'll have to leave.</button>
+      </div>
+      <label class="field"><span class="visually-hidden">Your prediction</span><textarea id="f-pred" rows="3" maxlength="300" placeholder="If I..., then..."></textarea></label>
+      <div class="dial clay">
+        <div><span class="title-4">How likely does that feel right now?</span><span class="caption-5 muted">You'll rate this again at the end.</span></div>
+        <output class="heading-2 mono" id="o-belief">80%</output>
+        <input id="f-belief" type="range" min="0" max="100" value="80" aria-label="How likely it feels, in percent">
+      </div>
+      <p class="error" id="e-fear" role="alert" hidden></p>
+      <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+    </form>
+
+    <form class="wiz-step" id="w-connect" novalidate hidden>
+      <span class="caption-3 eyebrow">Guided session · Step 3 of 3</span>
+      <h1 class="heading-3">Where should readings come from?</h1>
+      <p class="body-3 muted">During the session, the agent uses a live reading to stay careful. A high reading never makes it push harder.</p>
+      <button class="source source-off clay" id="connect-app" type="button" aria-haspopup="dialog">
+        <span class="source-icon"><i class="icon i24" style="--i:url(/icons/watch.svg)"></i></span>
+        <span class="source-text"><strong class="title-3">Toward wearable</strong><span class="body-6 muted">ECG, pulse, skin conductance and movement from our prototype, read by our anxiety model.</span></span>
+        <span class="soon caption-3">Integrating soon</span>
+      </button>
+      <div class="source source-on clay">
+        <span class="source-icon"><i class="icon i24" style="--i:url(/icons/waveform.svg)"></i></span>
+        <div><strong class="title-3">Demo stream</strong><p class="body-6 muted">A synthetic recording on a fixed script, with a simulated verdict, so you can see how the agent responds. It isn't your data and doesn't react to you.</p></div>
+        <span class="selected caption-3"><i class="icon" style="--i:url(/icons/check-circle.svg)"></i>Selected</span>
+      </div>
+      <p class="caption-5 muted" id="check-basis"></p>
+      <p class="error" id="e-connect" role="alert" hidden></p>
+      <button class="btn btn-cta btn-lg wiz-next" id="build-btn" type="submit">Build my practice plan<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+    </form>
+
+    <section class="wiz-step wiz-loading" id="w-loading" hidden aria-live="polite">
+      <div class="skeleton-title"></div>
+      <div class="skeleton-row"><span></span><span></span><span></span></div>
+      <p class="title-3 muted">The planner is reading your check and your record.</p>
+    </section>
+
+    <section class="wiz-step wiz-plan" id="w-plan" hidden>
+      <span class="caption-3 eyebrow">Your practice plan <span class="muted" id="plan-meta"></span></span>
+      <h1 class="heading-3" id="plan-path"></h1>
+      <p class="title-2 muted" id="plan-why"></p>
+      <p class="body-5 pred-banner" id="plan-record" hidden></p>
+      <div class="plan-basis">
+        <div class="basis clay"><span class="caption-4 muted">From your check</span><strong class="heading-5 mono" id="plan-gad"></strong></div>
+        <div class="basis clay"><span class="caption-4 muted">Situation</span><strong class="title-3" id="plan-event"></strong></div>
+        <div class="basis clay"><span class="caption-4 muted">Live reading</span><strong class="title-3">Demo stream</strong></div>
+      </div>
+      <div class="transform">
+        <div class="tf-card clay"><span class="caption-3 muted">Your anxiety says</span><p class="title-3" id="plan-said"></p></div>
+        <i class="icon i24 tf-arrow" style="--i:url(/icons/arrow-right.svg)"></i>
+        <div class="tf-card tf-b clay"><span class="caption-3">What we'll test</span><p class="title-3" id="plan-test"></p></div>
+      </div>
+      <p class="body-6 muted" id="plan-basis-note"></p>
+      <h2 class="heading-6">Your steps</h2>
+      <ol class="ladder" id="ladder"></ol>
+      <p class="body-6 muted">Today is a guided session for step one. AI guides play the people who would really be there, while the agent watches your readings. You can stop at any moment.</p>
+      <div class="plan-actions"><button class="btn btn-cta btn-lg" id="enter-btn" type="button">Start guided session<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button></div>
+    </section>
+  </div>
+
+  <!-- GUIDED SESSION -->
+  <div class="stage" id="stage" hidden>
+    <div id="room-panel" role="group" aria-label="Three AI guides"></div>
+    <header class="hud">
+      <button class="hud-btn" id="leave-btn" type="button" aria-label="Leave the session"><i class="icon i20" style="--i:url(/icons/arrow-left.svg)"></i><span class="hud-label">Leave</span></button>
+      <div class="hud-info">
+        <span class="caption-3 mono" id="q-count">Step 1 of 6</span>
+        <span class="hud-verdict caption-3" id="hud-verdict" data-v="unavailable"><i></i><span id="hud-verdict-text">Reading starts soon</span></span>
+      </div>
+      <div class="hud-right">
+        <button class="hud-btn" id="sound-btn" type="button" aria-pressed="true" aria-label="Sound"><i class="icon i20" id="sound-icon" style="--i:url(/icons/speaker-high.svg)"></i></button>
+        <button class="hud-btn hud-agent" id="agent-btn" type="button" aria-expanded="false" aria-controls="drawer"><i class="icon i20" style="--i:url(/icons/cpu.svg)"></i><span class="hud-label">How it decides</span></button>
+        <button class="hud-btn hud-stop" id="stop-btn" type="button"><i class="icon i20" style="--i:url(/icons/stop-circle.svg)"></i><span>Stop</span></button>
+      </div>
+    </header>
+
+    <div class="center-card clay" id="calibrate">
+      <span class="caption-3 eyebrow">Setting your baseline</span>
+      <h2 class="heading-5">Read this out loud, in your normal voice.</h2>
+      <blockquote class="read-text title-3" id="read-text"></blockquote>
+      <p class="body-6 muted">Talking raises your heart rate on its own. This baseline stops talking being mistaken for anxiety.</p>
+      <div class="progress" id="cal-progress" hidden><span id="cal-fill"></span></div>
+      <button class="btn btn-cta btn-lg" id="cal-btn" type="button">I'm ready to read</button>
+    </div>
+
+    <div class="dock" id="dock" hidden>
+      <div class="caption clay" id="caption">
+        <span class="caption-3 who" id="who"></span>
+        <p class="title-1" id="line" aria-live="polite"></p>
+      </div>
+      <div class="answer clay" id="answer-box">
+        <div class="meter" id="meter">
+          <div class="meter-ring" id="ring"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" class="ring-bg"/><circle cx="32" cy="32" r="28" class="ring-fg" id="ring-fg"/></svg><span class="mono caption-3" id="ring-text">0.0</span></div>
+          <div class="meter-text"><span class="title-4" id="meter-title">Take your time</span><span class="caption-5 muted" id="meter-sub"></span></div>
+          <canvas id="wave" width="240" height="48" aria-hidden="true"></canvas>
+        </div>
+        <form id="answer-form" class="answer-form">
+          <label class="visually-hidden" for="answer">Your response</label>
+          <textarea id="answer" rows="1" maxlength="1500" placeholder="Type your response"></textarea>
+          <div class="answer-actions">
+            <button class="btn btn-accent" id="mic-btn" type="button"><i class="icon i20" id="mic-icon" style="--i:url(/icons/microphone.svg)"></i><span id="mic-label">Use my voice</span></button>
+            <button class="btn btn-cta" id="send-btn" type="submit">Respond<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+          </div>
+        </form>
+        <p class="error" id="e-answer" role="alert" hidden></p>
+      </div>
+    </div>
+
+    <aside class="drawer" id="drawer" aria-label="How it decides" hidden>
+      <div class="drawer-head">
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-tab="live" type="button">Live</button>
+          <button role="tab" aria-selected="false" data-tab="evidence" type="button">Measured</button>
+          <button role="tab" aria-selected="false" data-tab="log" type="button">Reasoning</button>
+        </div>
+        <button class="hud-btn hud-close" id="drawer-close" type="button" aria-label="Close"><i class="icon i20" style="--i:url(/icons/x.svg)"></i></button>
+      </div>
+      <div class="tab" id="tab-live">
+        <div class="legend caption-4"><span><i class="dot dot-code"></i>Fixed code</span><span><i class="dot dot-model"></i>Anxiety model</span><span><i class="dot dot-llm"></i>Language model</span></div>
+        <ol class="pipeline" id="pipeline"></ol>
+        <div class="signal">
+          <div class="signal-head"><span class="title-4">Anxiety-like arousal</span><span class="state" id="state" data-state="CALIBRATING"><span class="state-dot"></span><span id="state-label">Baseline</span></span></div>
+          <div class="chart" id="chart"></div>
+          <p class="body-6" id="state-text">The first response starts the trace.</p>
+          <p class="caption-5 muted"><span id="data-label">Synthetic replay</span>. Heart rate change from baseline, in beats per minute.</p>
+        </div>
+        <div class="console">
+          <span class="title-4">Demo controls</span>
+          <p class="caption-5 muted">The demo stream doesn't react to you. It follows a fixed script, one part per response: calm, rising, high, movement, safety limit, settled. That way each safety rule shows once. Pick a chip to override the next part, then respond.</p>
+          <div class="chips chips-sm" id="inject" role="radiogroup" aria-label="Next reading"></div>
+          <button class="btn btn-white btn-sm" id="sample-btn" type="button" style="align-self: flex-start">Send a sample response</button>
+        </div>
+      </div>
+      <div class="tab" id="tab-evidence" hidden><p class="title-4" id="ev-pred"></p><ol class="ledger" id="ledger"></ol></div>
+      <div class="tab" id="tab-log" hidden><ol class="trail" id="trail"></ol></div>
+    </aside>
+  </div>
+
+  <!-- AFTER THE SESSION -->
+  <section class="sheet" id="debrief" hidden>
+    <form class="sheet-card post clay" id="debrief-form">
+      <span class="caption-3 eyebrow">After your session</span>
+      <h1 class="heading-4">A few questions about how that was.</h1>
+      <p class="body-3 muted" id="d-note"></p>
+      <div class="post-q">
+        <span class="title-3">At its strongest, how anxious did you feel? <output class="mono" id="o-peak">5 of 10</output></span>
+        <input id="f-peak" type="range" min="0" max="10" value="5" aria-label="Peak anxiety from 0 to 10">
+        <div class="scale caption-5 muted"><span>Not at all</span><span>The most I can imagine</span></div>
+      </div>
+      <div class="post-q">
+        <span class="title-3">Did you notice any of these?</span>
+        <div class="chips chips-toggle" id="symptoms" role="group" aria-label="Symptoms you noticed"></div>
+      </div>
+      <div class="post-q">
+        <span class="title-3" id="d-pred"></span>
+        <span class="caption-5 muted">Did that happen?</span>
+        <div class="seg" id="q-outcome" role="radiogroup" aria-label="Did the feared outcome happen"><button type="button" role="radio" aria-checked="false" data-v="yes">Yes</button><button type="button" role="radio" aria-checked="false" data-v="partly">Partly</button><button type="button" role="radio" aria-checked="false" data-v="no">No</button></div>
+      </div>
+      <div class="post-q">
+        <span class="title-3">How likely does that prediction feel now? <output class="mono" id="o-after">80%</output></span>
+        <input id="f-after" type="range" min="0" max="100" value="80" aria-label="How likely it feels now, in percent">
+        <span class="caption-5 muted">Before the session, you said <span class="mono" id="d-before"></span>.</span>
+      </div>
+      <label class="field"><span class="title-3">Anything you'd like to remember? <span class="caption-5 muted">Optional</span></span><textarea id="f-note" rows="2" maxlength="400" placeholder="What surprised you?"></textarea></label>
+      <p class="error" id="e-post" role="alert" hidden></p>
+      <button class="btn btn-cta btn-lg" id="finish-btn" type="submit">See my summary<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+    </form>
+  </section>
+
+  <!-- SESSION SUMMARY -->
+  <section class="summary" id="report" hidden>
+    <header class="summary-top no-print">
+      <a class="btn btn-white btn-sm" href="/home"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Home</a>
+      <div class="summary-actions">
+        <a class="btn btn-white btn-sm" href="/record">My record</a>
+        <button class="btn btn-white btn-sm" id="print-btn" type="button">Save or share as PDF</button>
+        <button class="btn btn-cta btn-sm" id="again-btn" type="button">Back to practice</button>
+      </div>
+    </header>
+
+    <div class="sum-hero">
+      <div class="sum-hero-head">
+        <span class="caption-3">Your session summary · <span id="r-date"></span></span>
+        <span class="sum-tag caption-3" id="r-source"></span>
+      </div>
+      <h1 class="heading-2" id="r-path"></h1>
+      <p class="title-1" id="r-why"></p>
+    </div>
+
+    <div class="sum-metrics">
+      <article class="metric clay">
+        <span class="caption-4 muted">GAD-7 screening, from your check</span>
+        <strong class="heading-2 mono" id="m-gad"></strong>
+        <div class="band-bar" aria-hidden="true"><span></span><span></span><span></span><span></span><i id="m-marker"></i></div>
+        <span class="body-5" id="m-band"></span>
+      </article>
+      <article class="metric clay">
+        <span class="caption-4 muted">Highest anxiety-like reading</span>
+        <strong class="heading-2 cap" id="m-verdict"></strong>
+        <div class="verdict-row" id="m-verdicts" aria-hidden="true"></div>
+        <span class="body-5" id="m-verdict-source"></span>
+      </article>
+      <article class="metric clay">
+        <span class="caption-4 muted">How anxious you felt, at most</span>
+        <strong class="heading-2 mono" id="m-peak"></strong>
+        <div class="scale-bar" aria-hidden="true"><i id="m-peak-bar"></i></div>
+        <span class="body-5">By your own rating</span>
+      </article>
+    </div>
+
+    <article class="prediction clay">
+      <span class="caption-4 muted">What your anxiety predicted</span>
+      <h2 class="heading-4" id="r-pred"></h2>
+      <div class="belief">
+        <div><span class="caption-4 muted">Before</span><strong class="heading-2 mono" id="r-before"></strong></div>
+        <i class="icon i24" style="--i:url(/icons/arrow-right.svg)"></i>
+        <div><span class="caption-4 muted">After</span><strong class="heading-2 mono" id="r-after"></strong></div>
+        <div class="belief-out"><span class="caption-4 muted">Did it happen?</span><strong class="heading-5" id="r-outcome"></strong></div>
+      </div>
+    </article>
+
+    <article class="insight clay">
+      <i class="icon i24" style="--i:url(/icons/brain.svg)"></i>
+      <div>
+        <span class="caption-4 muted">What the agent noticed</span>
+        <p class="heading-6" id="r-summary"></p>
+        <p class="title-3 muted" id="r-insight"></p>
+      </div>
+    </article>
+
+    <div class="sum-grid">
+      <article class="panel-card clay">
+        <h2 class="title-2">Anxiety-like arousal during the session</h2>
+        <div class="chart chart-lg" id="r-chart"></div>
+        <p class="caption-5 muted" id="r-chart-note"></p>
+      </article>
+      <article class="panel-card clay">
+        <h2 class="title-2">Your GAD-7 answers</h2>
+        <ul class="gad-answers" id="r-gad"></ul>
+      </article>
+    </div>
+
+    <div class="sum-grid">
+      <article class="panel-card clay">
+        <h2 class="title-2">What you told us afterwards</h2>
+        <h3 class="caption-4 muted">Noticed in your body</h3>
+        <div class="chips-static" id="r-symptoms"></div>
+        <h3 class="caption-4 muted" id="r-note-label">Your note</h3>
+        <p class="body-3" id="r-note"></p>
+        <h3 class="caption-4 muted">Measured during the session</h3>
+        <p class="body-6" id="r-measured"></p>
+      </article>
+      <article class="panel-card next-card clay">
+        <h2 class="title-2">Your next steps</h2>
+        <ol class="next-steps body-5" id="r-steps"></ol>
+        <div class="replan"><span class="caption-3 muted">The agent's updated next session</span><p class="title-3" id="r-practice"></p><button class="btn btn-white btn-sm no-print" id="ics-btn" type="button">Add a reminder to my calendar</button><a class="body-5 no-print" id="r-saved" href="/record" hidden></a></div>
+        <div class="mission"><span class="caption-3">This week's real world step</span><p class="title-3" id="r-mission"></p></div>
+      </article>
+    </div>
+
+    <details class="panel-card clay no-print"><summary class="title-3">Why the agent did what it did</summary><ol class="trail" id="r-trail"></ol></details>
+
+    <footer class="sum-foot">
+      <p class="body-6"><strong>If you're struggling, please reach out.</strong> Speak to a counsellor or doctor. If you may be in danger, call your local emergency number. In India, Tele-MANAS is 14416. In the UK and Ireland, Samaritans are 116 123.</p>
+      <p class="caption-5 muted" id="r-note-demo"></p>
+    </footer>
+  </section>
+
+  <section class="sheet" id="exit" hidden>
+    <div class="sheet-card clay">
+      <span class="exit-icon"><i class="icon i24" style="--i:url(/icons/lifebuoy.svg)"></i></span>
+      <h1 class="heading-4" id="exit-title"></h1>
+      <p class="title-2" id="exit-text"></p>
+      <p class="caption-5 muted">This response comes from fixed safety rules, not from a language model.</p>
+      <a class="btn btn-white" href="/home"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Back to Home</a>
+    </div>
+  </section>
+</main>
+
+<dialog class="dlg clay" id="pause-dlg" aria-labelledby="pause-title">
+  <span class="exit-icon"><i class="icon i24" style="--i:url(/icons/shield-check.svg)"></i></span>
+  <h2 class="heading-5" id="pause-title">Let's pause</h2>
+  <p class="body-3" id="pause-text"></p>
+  <div class="breath" id="breath" hidden aria-live="polite"><div class="breath-ball"></div><span class="title-3" id="breath-text">Breathe in</span></div>
+  <p class="caption-5 muted">The Safety Governor stepped in. A second limit would end the session.</p>
+  <div class="dlg-actions">
+    <button class="btn btn-white" id="breath-btn" type="button">Breathe for 30 seconds</button>
+    <button class="btn btn-white" id="resume-stop" type="button">Stop here</button>
+    <button class="btn btn-cta" id="resume-go" type="button">Continue</button>
+  </div>
+</dialog>
+
+<dialog class="dlg clay" id="leave-dlg" aria-labelledby="leave-title">
+  <h2 class="heading-5" id="leave-title">Leave this session?</h2>
+  <p class="body-3">This ends the session. You'll still get your summary, or you can go back to the start.</p>
+  <div class="dlg-actions">
+    <button class="btn btn-white" id="leave-stay" type="button">Stay</button>
+    <button class="btn btn-cta" id="leave-go" type="button">End session</button>
+  </div>
+</dialog>
+
+<script type="module" src="/js/room.js"></script>
+</body>
+</html>

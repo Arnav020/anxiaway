@@ -457,6 +457,8 @@ def test_scripted_plan_stays_within_available_days():
 def client(monkeypatch):
     import server
     monkeypatch.setattr(server, "team", scripted_team())
+    monkeypatch.setattr(server, "REQUIRE_CHECK", False)
+    server._llm_hits.clear()
     server._hits.clear()
     return TestClient(server.app), server
 
@@ -667,9 +669,11 @@ def test_review_falls_back_when_the_model_is_missing_or_fails():
 
 def test_review_runs_tools_from_the_model_then_decides():
     from toward.record import review
-    script = [("finish_review", {"pattern": "Nine of 10.", "prediction_id": "p1", "next_action": "Try a small step.", "why": "Only one open."}),
+    script = [("finish_review", {"step": "test", "pattern": "Too little yet.", "prediction_id": "p1", "next_action": "Try a small step.", "why": "Only one open."}),
+              ("read_record", {"sections": ["get_record_stats", "list_open_predictions", "not_a_section"]}),
+              ("finish_review", {"step": "test", "pattern": "Nine of 10.", "prediction_id": "p1", "next_action": "Try a small step.", "why": "Only one open."}),
               ("schedule_follow_up", {"prediction_id": "p1", "days": 2}),
-              ("finish_review", {"pattern": "Too little yet.", "prediction_id": "p1", "next_action": "Try a small step.", "why": "Only one open."})]
+              ("finish_review", {"step": "test", "pattern": "Too little yet.", "prediction_id": "p1", "next_action": "Try a small step.", "why": "Only one open."})]
     calls = []
 
     class Fake:
@@ -685,9 +689,13 @@ def test_review_runs_tools_from_the_model_then_decides():
                     return type("R", (), {"choices": [type("C", (), {"message": message})]})
 
     result = review(_record([_pred(1)]), 100, Fake())
-    assert result["source"] == "Groq" and result["kind"] == "test" and len(calls) == 3
-    assert [t["tool"] for t in result["trace"]] == ["safety_scan", "get_record_stats", "list_checked_predictions", "list_open_predictions", "compare_themes", "finish_review", "schedule_follow_up", "finish_review"]
-    assert result["trace"][5]["rejected"], "digits are rejected by fixed code, and the model gets to try again"
+    assert result["source"] == "Groq" and result["kind"] == "test" and len(calls) == 5
+    assert [t["tool"] for t in result["trace"]] == ["safety_scan", "finish_review", "get_record_stats", "list_open_predictions", "finish_review", "schedule_follow_up", "finish_review"]
+    assert result["trace"][1]["rejected"] and "Read the record" in result["trace"][1]["summary"], "the agent must read before it decides"
+    assert all(t["by"] == "Groq" for t in result["trace"][1:]), "the agent chose every read itself"
+    assert result["trace"][4]["rejected"], "digits are rejected by fixed code, and the model gets to try again"
+    assert [tool["function"]["name"] for tool in calls[0]["tools"]] == ["read_record", "finish_review"] and "must_read_first" in calls[0]["messages"][1]["content"]
+    assert calls[0]["model"] != calls[2]["model"], "a small model picks what to read, and the stronger one decides"
     assert result["pattern"] == "Too little yet." and "p1" in result["follow_ups"]
 
 
@@ -738,8 +746,9 @@ def test_final_wording_is_checked_and_a_just_checked_result_reaches_the_agent(mo
                 @staticmethod
                 def create(**kwargs):
                     seen.append(kwargs["messages"][1]["content"])
-                    args = {"pattern": "in your record so far, one thing", "prediction_id": None, "next_action": "try it again", "why": "it fits"}
-                    fn = type("F", (), {"name": "finish_review", "arguments": json.dumps(args)})
+                    args = {"step": "add", "pattern": "in your record so far, one thing", "prediction_id": None, "next_action": "try it again", "why": "it fits"}
+                    name = "get_record_stats" if len(seen) == 1 else "finish_review"
+                    fn = type("F", (), {"name": name, "arguments": json.dumps({} if len(seen) == 1 else args)})
                     message = type("M", (), {"content": "", "tool_calls": [type("TC", (), {"id": "c1", "function": fn})]})
                     return type("R", (), {"choices": [type("C", (), {"message": message})]})
 
@@ -748,3 +757,304 @@ def test_final_wording_is_checked_and_a_just_checked_result_reaches_the_agent(mo
     assert result["next_action"] == "Try it again."
     scripted = review(_record([_pred(1, outcome="no")]), 100, None, "p1")
     assert "next time" in scripted["next_action"]
+
+
+# The anxiety check, the device link and the screening gate
+NOW = 1_800_000_000_000
+DAY = 86_400_000
+
+
+def _checks(*scores, impact=None, step_days=14):
+    from toward.checks import CheckEntry
+    return [CheckEntry(at=NOW - (len(scores) - i) * step_days * DAY, score=s, impact=impact) for i, s in enumerate(scores)]
+
+
+def test_check_keeps_the_three_sources_apart_and_never_merges_them():
+    from toward import checks
+    result = checks.evaluate([1, 1, 1, 1, 0, 1, 1], 1, False, False, False, {"state": "HIGH"}, [], NOW)
+    assert result["status"] == "ok" and result["score"] == 6 and result["band"] == "Mild"
+    assert result["agreement"]["kind"] == "differ" and "caffeine" in result["agreement"]["text"]
+    assert "combined" not in result and "overall" not in result
+    assert checks.agreement("Moderate", "LOW")["kind"] == "differ"
+    assert checks.agreement("Mild", "ENGAGED")["kind"] == "agree"
+    assert checks.agreement("Mild", None)["kind"] == "none"
+    assert checks.agreement("Mild", "UNKNOWN")["kind"] == "untrusted"
+    assert checks.agreement("Mild", "CALIBRATING")["kind"] == "baseline"
+
+
+def test_check_routes_crisis_severe_and_heart_answers_in_fixed_code():
+    from toward import checks
+    crisis = checks.evaluate([0] * 7, None, True, False, False, None, [], NOW)
+    assert crisis == {"status": "crisis", "exit_message": governor.CRISIS_RESOURCES}
+    severe = checks.evaluate([3, 3, 3, 2, 2, 2, 2], 3, False, False, False, None, [], NOW)
+    assert severe["status"] == "referred" and severe["check_token"] is None and severe["band"] == "Severe"
+    heart = checks.evaluate([1, 0, 0, 0, 0, 0, 0], 0, False, True, False, None, [], NOW)
+    assert heart["status"] == "referred" and heart["check_token"] is None and heart["exit_message"] == checks.HEART_NOTE
+
+
+def test_daily_life_impact_and_a_rising_trend_are_flagged_early():
+    from toward import checks
+    low_but_hard = checks.evaluate([1, 1, 0, 0, 0, 0, 0], 2, False, False, False, None, [], NOW)
+    assert low_but_hard["band"] == "Minimal" and checks.IMPACT_NOTE in low_but_hard["notes"]
+    rising = checks.evaluate([2, 2, 2, 2, 1, 1, 1], 1, False, False, False, None, _checks(4, 7), NOW)
+    assert rising["trend"]["rising"] and checks.RISING_NOTE in rising["notes"] and rising["trend"]["next"] == "person"
+    steady = checks.trend(_checks(8, 7, 8, step_days=3), NOW)
+    assert steady["direction"] == "about the same" and not steady["rising"] and steady["next"] is None
+    assert checks.trend(_checks(6, step_days=20), NOW)["next"] == "screen"
+    assert checks.trend([], NOW)["next"] == "screen"
+    assert checks.parse_checks([{"at": 5, "score": 99}, {"at": 9, "score": 4}])[0].score == 4
+
+
+def test_check_token_is_signed_recent_and_starts_a_session(monkeypatch):
+    from toward import checks
+    http, _ = client(monkeypatch)
+    body = {"gad_items": [1, 1, 2, 1, 0, 1, 1], "impact": 1, "consent": True}
+    assert http.post("/api/check", json={**body, "consent": False}).status_code == 422
+    assert http.post("/api/check", json={**body, "gad_items": [9] * 7}).status_code == 422
+    result = http.post("/api/check", json={**body, "body": {"state": "LOW"}}).json()
+    token = result["check_token"]
+    assert result["status"] == "ok" and checks.open_token(token) == {"gad_items": body["gad_items"], "impact": 1, "body_state": "LOW", "body_demo": True}
+    with pytest.raises(BadToken):
+        checks.open_token(token, result["at"] + 25 * 3_600_000)
+    with pytest.raises(BadToken):
+        checks.open_token(seal({"kind": "other", "at": NOW, "gad_items": [0] * 7}), NOW)
+    setup = {"event": "Going somewhere crowded", "days_until": 5, "prediction": "I will have to leave", "belief_before": 70}
+    started_ok = http.post("/api/session", json={**setup, "check_token": token}).json()
+    assert started_ok["status"] == "planned" and started_ok["gad"]["score"] == 7
+    assert http.post("/api/session", json={**setup, "check_token": "forged"}).status_code == 409
+    assert http.post("/api/session", json=setup).status_code == 422
+
+
+def test_demo_reading_is_classified_by_the_same_signal_layer():
+    from toward import device
+    base_hr, base_eda = device.demo_baseline()
+    expected = {"calm": "LOW", "rising": "ENGAGED", "high": "HIGH", "movement": "UNKNOWN", "sensor_loss": "ENGAGED"}
+    for scenario, state in expected.items():
+        samples, cursor = device.demo_samples(scenario)
+        summary = device.summarise(samples, base_hr, base_eda)
+        assert summary["state"] == state and cursor["t"] == len(samples)
+        assert summary["verdict"]["source"] == "Simulated" and summary["source"] == device.DEMO_LABEL
+    lost = device.summarise(device.demo_samples("sensor_loss")[0], base_hr, base_eda)
+    assert lost["heart_source"] == "PPG" and "ECG" not in lost["present"]
+    eeg = next(m for m in lost["mask"] if m["sensor"] == "EEG")
+    assert eeg == {"sensor": "EEG", "text": device.SENSOR_TEXT["EEG"], "on_device": False, "present": False}
+    moving = device.summarise(device.demo_samples("movement")[0], base_hr, base_eda)
+    assert moving["verdict"]["label"] == "unavailable" and moving["confidence"] == 0
+
+
+def test_first_device_reading_sets_a_baseline_and_claims_nothing():
+    from toward import device
+    first = device.summarise(flat(72, 45), None, None)
+    assert first["state"] == "CALIBRATING" and first["baseline"]["set_now"] and first["baseline"]["hr"] == 72
+    assert first["verdict"] is None and first["hr_delta"] is None
+    later = device.summarise(flat(100, 45), 72.0, 4.0, {"label": "high", "probability": 0.81}, device.DEVICE_LABEL)
+    assert later["state"] == "HIGH" and later["hr_delta"] == 28.0
+    assert later["verdict"] == {"label": "high", "probability": 0.81, "source": "Model"}
+
+
+def test_device_api_reply_is_normalised_and_failures_give_no_reading(monkeypatch):
+    from toward import device
+    monkeypatch.delenv("TOWARD_DEVICE_API_URL", raising=False)
+    preferred = {"samples": [{"t": 0, "ecg_hr": 80, "ppg_hr": 79, "eda": 4.1, "motion": 0.02, "quality": 0.9}],
+                 "verdict": {"label": "moderate", "probability": 0.6}}
+    got = device.normalise(preferred)
+    assert got["samples"][0].ecg_hr == 80 and got["verdict"] == {"label": "moderate", "probability": 0.6}
+    loose = device.normalise({"readings": [{"heart_rate": 91, "gsr": 5.2, "imu": 0.1}], "prediction": "anxious", "confidence": 0.9})
+    assert loose["samples"][0].ecg_hr == 91 and loose["samples"][0].quality == 1.0 and loose["verdict"]["label"] == "high"
+    assert device.normalise({"samples": []}) is None and device.normalise("nope") is None
+    assert device.normalise({"samples": [{"hr": 80}], "verdict": {"label": "purple"}})["verdict"] is None
+
+    assert not device.configured() and device.fetch_latest() is None and device.status()["label"] == "Integrating soon"
+    monkeypatch.setenv("TOWARD_DEVICE_API_URL", "https://device.test/latest")
+    monkeypatch.setenv("TOWARD_DEVICE_API_KEY", "k")
+    seen = {}
+
+    def ok(url, headers, timeout):
+        seen.update(url=url, headers=headers)
+        return httpx.Response(200, json=preferred, request=httpx.Request("GET", url))
+
+    assert device.fetch_latest(ok)["samples"][0].ppg_hr == 79 and seen["headers"] == {"Authorization": "Bearer k"}
+    assert device.status()["configured"] and all(s["present"] == s["on_device"] for s in device.status()["sensors"])
+
+    def down(url, headers, timeout):
+        raise httpx.ConnectError("down")
+
+    assert device.fetch_latest(down) is None
+    assert device.fetch_latest(lambda url, headers, timeout: httpx.Response(500, request=httpx.Request("GET", url))) is None
+
+
+def test_reading_endpoint_serves_the_demo_and_refuses_a_missing_device(monkeypatch):
+    http, _ = client(monkeypatch)
+    monkeypatch.delenv("TOWARD_DEVICE_API_URL", raising=False)
+    demo = http.post("/api/reading", json={"mode": "demo", "scenario": "high"}).json()
+    assert demo["summary"]["state"] == "HIGH" and len(demo["samples"]) == 45 and demo["cursor"]["t"] == 45
+    again = http.post("/api/reading", json={"mode": "demo", "scenario": "calm", **demo["cursor"]}).json()
+    assert again["samples"][0]["t"] == 45
+    assert http.post("/api/reading", json={"mode": "device"}).status_code == 409
+    status = http.get("/api/device/status").json()
+    assert status["configured"] is False and status["window_s"] == 10 and status["stride_s"] == 5
+
+
+def test_screening_gates_the_agent_before_any_prediction_test():
+    from toward.record import review
+    record = _record([_pred(1), _pred(2, outcome="no", belief_after=30)])
+    plain = review(record, NOW, None)
+    assert plain["kind"] in ("check", "test") and plain["screening"] is None
+    no_check = review(record, NOW, None, checks=[])
+    assert no_check["kind"] == "screen" and no_check["prediction_id"] is None
+    assert no_check["trace"][1]["tool"] == "get_screening_trend"
+    stale = review(record, NOW, None, checks=_checks(6, step_days=20))
+    assert stale["kind"] == "screen"
+    severe = review(record, NOW, None, checks=_checks(17, step_days=1))
+    assert severe["kind"] == "person" and "counsellor" in severe["next_action"]
+    recent = review(record, NOW, None, checks=_checks(6, step_days=1))
+    assert recent["kind"] == plain["kind"] and recent["screening"]["latest_band"] == "Mild"
+    only_checks = review([], NOW, None, checks=_checks(6, step_days=1))
+    assert only_checks["kind"] == "add"
+
+
+def test_a_model_cannot_talk_its_way_past_the_screening_gate():
+    from toward.record import Toolbox
+    box = Toolbox(_record([_pred(1)]), NOW, _checks(18, step_days=1))
+    accepted = box.call("finish_review", {"pattern": "in your record so far, one open item", "prediction_id": "p1",
+                                          "next_action": "test this one today", "why": "it is open"})
+    assert accepted == {"accepted": True, "kind": "person"} and box.result["prediction_id"] is None
+
+
+def test_fixed_code_starts_practice_gently_and_says_when_a_reading_was_a_demo(monkeypatch):
+    http, _ = client(monkeypatch)
+    setup = {"event": "Going somewhere crowded", "days_until": 5, "prediction": "I will have to leave", "belief_before": 70}
+
+    def plan_for(check):
+        token = http.post("/api/check", json={"consent": True, **check}).json()["check_token"]
+        return http.post("/api/session", json={**setup, "check_token": token}).json()
+
+    plain = plan_for({"gad_items": [1, 1, 1, 1, 0, 1, 1], "impact": 1})
+    assert plain["basis"] == {"impact": "Somewhat difficult", "body": None, "body_demo": False, "gentle": []}
+    hard = plan_for({"gad_items": [1, 1, 1, 1, 0, 1, 1], "impact": 3})
+    assert hard["basis"]["gentle"] == ["anxiety is making daily life very difficult"] and hard["level"] <= 2
+    demo = plan_for({"gad_items": [1, 1, 1, 1, 0, 1, 1], "impact": 0, "body": {"state": "HIGH"}})
+    assert demo["basis"]["body_demo"] and "demo body reading" in demo["basis"]["gentle"][0]
+    real = plan_for({"gad_items": [2, 2, 2, 2, 1, 1, 1], "impact": 1, "body": {"state": "LOW", "source": "device"}})
+    assert not real["basis"]["body_demo"] and real["basis"]["gentle"] == ["your screening is in the moderate range"]
+    assert any("Gentle start" in entry["text"] for entry in real["trail"])
+
+
+# Audit fixes
+def test_reworded_and_disguised_crisis_language_is_caught():
+    from toward.record import review, safety_scan, sharpen
+    caught = ["I keep thinking about ending it all", "I will take my own life if I fail", "k1ll myself after the viva",
+              "everyone would be better off without me", "I don't want to be alive anymore", "I wish I were dead",
+              "main marna chahta hoon", "thinking of an overdose", "I might hang myself"]
+    for text in caught:
+        assert governor.check_user_text(text).action is Action.CRISIS, text
+        assert safety_scan([text])["status"] == "crisis", text
+        assert sharpen(text, None)["status"] == "crisis", text
+        assert not governor.output_is_safe(text), text
+    fine = ["I'll die of embarrassment if I forget my lines", "I want to end my presentation early", "My battery will die mid call",
+            "I'm dead tired before the exam", "They will kill my idea in the meeting"]
+    for text in fine:
+        assert governor.check_user_text(text).action is Action.ALLOW, text
+
+    class Never:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    raise AssertionError("A model saw crisis text")
+
+    assert review(_record([_pred(1, text="I keep thinking about ending it all after results")]), 100, Never())["status"] == "crisis"
+
+
+def test_a_model_that_reads_a_worry_as_self_harm_triggers_fixed_crisis_words():
+    from toward.record import Sharpened, sharpen
+
+    class Llm:
+        def _call(self, model, system, payload, model_type):
+            return Sharpened(prediction="I will end my life.", how_to_check="I notice I have taken a lethal dose.", theme="other", suitable=True)
+
+    result = sharpen("I can't see a way through this term", Llm())
+    assert result == {"status": "crisis", "message": governor.CRISIS_RESOURCES}
+
+
+def test_the_agent_chooses_among_allowed_steps_and_fixed_code_holds_the_line():
+    from toward.record import Toolbox, tools_for
+    ok = {"pattern": "in your record so far, one open item", "next_action": "try one small thing", "why": "it fits"}
+    free = Toolbox(_record([_pred(1)]), NOW, _checks(6, step_days=9))
+    assert free.allowed_steps() == ["test", "add", "screen"]
+    assert free.call("finish_review", {**ok, "step": "person", "prediction_id": None})["error"].startswith("step must be one of")
+    assert free.call("finish_review", {**ok, "step": "screen", "prediction_id": "p1"}) == {"accepted": True, "kind": "screen"}
+    assert free.result["prediction_id"] is None
+    assert Toolbox(_record([_pred(1, due_at=50)]), NOW, _checks(6, step_days=1)).allowed_steps() == ["check"]
+    assert Toolbox(_record([_pred(1)]), NOW, _checks(18, step_days=1)).allowed_steps() == ["person"]
+    assert Toolbox(_record([]), NOW, None).allowed_steps() == ["add"]
+    read = tools_for(free)[0]["function"]
+    assert read["name"] == "read_record" and read["parameters"]["properties"]["sections"]["items"]["enum"][0] == "get_screening_trend"
+    assert "get_screening_trend" not in tools_for(Toolbox([], NOW, None))[0]["function"]["parameters"]["properties"]["sections"]["items"]["enum"]
+    assert "error" in free.call("read_record", {"sections": ["nonsense"]})
+    strict = Toolbox(_record([_pred(1)]), NOW, _checks(6, step_days=1))
+    strict.must_read = True
+    assert "Read the record" in strict.call("finish_review", {**ok, "step": "test", "prediction_id": "p1"})["error"]
+    got = strict.call("read_record", {"sections": ["get_record_stats", "get_screening_trend", "list_open_predictions"]})
+    assert set(got) == {"get_record_stats", "get_screening_trend", "list_open_predictions"} and len(strict.trace) == 4
+    assert strict.call("finish_review", {**ok, "step": "test", "prediction_id": "p1", "follow_up_days": 3}) == {"accepted": True, "kind": "test"}
+    assert strict.follow_ups["p1"] == NOW + 3 * DAY and strict.trace[-2]["tool"] == "schedule_follow_up"
+
+
+def test_an_agent_that_never_reads_falls_back_to_the_scripted_policy():
+    from toward.record import review
+
+    class Stubborn:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    args = {"step": "test", "pattern": "in your record so far, one item", "prediction_id": "p1", "next_action": "try it", "why": "open"}
+                    fn = type("F", (), {"name": "finish_review", "arguments": json.dumps(args)})
+                    message = type("M", (), {"content": "", "tool_calls": [type("TC", (), {"id": "c", "function": fn})]})
+                    return type("R", (), {"choices": [type("C", (), {"message": message})]})
+
+    result = review(_record([_pred(1)]), 100, Stubborn())
+    assert result["source"] == "Scripted" and result["kind"] == "test" and result["prediction_id"] == "p1"
+    assert sum(t["rejected"] for t in result["trace"]) == 5
+
+
+def test_sessions_need_a_check_and_verdicts_need_the_device(monkeypatch):
+    http, server = client(monkeypatch)
+    monkeypatch.setattr(server, "REQUIRE_CHECK", True)
+    monkeypatch.delenv("TOWARD_DEVICE_API_URL", raising=False)
+    assert http.post("/api/session", json=SETUP).status_code == 409
+    assert http.get("/openapi.json").status_code == 404
+    token = http.post("/api/check", json={"gad_items": [1, 1, 1, 1, 0, 1, 1], "impact": 1, "consent": True}).json()["check_token"]
+    view = http.post("/api/session", json={"event": "Crowd", "days_until": 5, "prediction": "I will have to leave", "belief_before": 70, "check_token": token}).json()
+    view = http.post("/api/calibrate", json={"token": view["token"]}).json()
+    view = http.post("/api/answer", json={"token": view["token"], "text": "I would stay", "model_verdict": {"label": "low", "probability": 0.01}}).json()
+    assert view["verdict"]["source"] == "Simulated", "nobody can label their own verdict as the model's"
+
+
+def test_llm_budget_falls_back_to_scripted_and_the_caller_header_cannot_dodge_limits(monkeypatch):
+    http, server = client(monkeypatch)
+    monkeypatch.setattr(server, "_LLM_PER_MINUTE", 2)
+    assert server._llm_ok() and server._llm_ok() and not server._llm_ok()
+    assert http.post("/api/record/sharpen", json={"worry": "They will all laugh at me"}).json()["source"] == "Scripted"
+    request = type("R", (), {"headers": {"x-forwarded-for": "9.9.9.9", "x-real-ip": "1.2.3.4"}, "client": None})
+    assert server._client_of(request) == "1.2.3.4"
+
+
+def test_a_simulated_reading_is_never_described_as_the_persons_body():
+    session = started()
+    session.calibrate()
+    session.answer("I would stay where I am", "typed", 2.0)
+    session.stop()
+    session.finish(60, {"outcome": "no", "peak_distress": 4})
+    assert "simulated demo signal" in session.report["insight"] and session.report["verdict"]["source"] == "Simulated"
+
+
+def test_plans_and_guide_lines_that_soothe_are_rejected():
+    from toward.agents import LadderPlan, PlanStep, _OFF_SCENE, teaches_avoidance
+    calm = LadderPlan(testable_version="x", target_pause_s=3, steps=[
+        PlanStep(day=1, title="Breathe", difficulty=1, test="Do a two minute slow breathing exercise."),
+        PlanStep(day=2, title="Go", difficulty=2, test="Stand in the queue."), PlanStep(day=3, title="Stay", difficulty=3, test="Stay in the crowd.")])
+    assert teaches_avoidance(calm)
+    assert _OFF_SCENE.search("Notice the sounds around you, like a gentle tide, how does that feel?")
+    assert not _OFF_SCENE.search("The queue is long today. What do you do next?")

@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import time
 
-from . import care, governor
+from . import care, checks, device, governor
 from .agents import MAX_LEVEL, NEXT_STEP_TEXT, TACTIC_LABEL, AgentTeam
 from .governor import Action
 from .replay import stream_from_state
 from .signal_layer import SignalLayer, State
 
 MAX_TURNS = 6
+GENTLE_LEVEL = 2
 ADVANCE_IF_BELIEF_DROPS_BY = 15
 READ_ALOUD = (
     "The river rises in the hills and moves slowly through the valley. Farmers along its banks "
@@ -113,17 +114,47 @@ class Session:
         self._log("Safety Governor", "Entry checks passed")
 
         started = time.perf_counter()
+        impact, body_state = s.get("impact"), s.get("body_state")
         plan, source = self.team.plan({
             "event": s["event"], "days_until": s["days_until"], "prediction": s["prediction"],
             "gad_band": care.gad_band(score), "concerns": care.gad_concerns(s["gad_items"]),
             "record_note": s.get("record_note"),
+            "daily_life_impact": None if impact is None else checks.IMPACT_OPTIONS[impact],
+            "body_reading": device.BODY_TEXT[State(body_state)][0] if body_state else None,
         })
         ms = (time.perf_counter() - started) * 1000
         self.plan = plan.model_dump()
-        self.level = plan.steps[0].difficulty
+        # Fixed code, not the planner, decides when the first step must start gently.
+        reasons = self._gentle_reasons(care.gad_band(score), impact, body_state, bool(s.get("body_demo")))
+        if reasons and self.plan["steps"][0]["difficulty"] > GENTLE_LEVEL:
+            self.plan["steps"][0]["difficulty"] = GENTLE_LEVEL
+        if reasons:
+            self._log("Difficulty policy", f"Gentle start, because {' and '.join(reasons)}. The first step is capped at level {GENTLE_LEVEL}.")
+        self.level = self.plan["steps"][0]["difficulty"]
         self.status = "planned"
         self._step("planner", "llm", f"Built a {len(plan.steps)} step ladder", ms, source)
         self._log(f"Ladder Planner ({source})", f"Built a {len(plan.steps)} step plan toward the event", round(ms))
+
+    @staticmethod
+    def _gentle_reasons(band: str, impact: int | None, body_state: str | None, demo: bool = False) -> list[str]:
+        reasons = []
+        if band == "Moderate":
+            reasons.append("your screening is in the moderate range")
+        if impact is not None and impact >= 2:
+            reasons.append("anxiety is making daily life very difficult")
+        if body_state in (State.HIGH.value, State.LIMIT.value):
+            reasons.append(f"the {'demo ' if demo else ''}body reading at your check was well above {'the' if demo else 'your'} baseline")
+        return reasons
+
+    def _basis(self) -> dict:
+        s = self.setup
+        impact, body_state = s.get("impact"), s.get("body_state")
+        return {
+            "impact": None if impact is None else checks.IMPACT_OPTIONS[impact],
+            "body": device.BODY_TEXT[State(body_state)][0] if body_state else None,
+            "body_demo": bool(s.get("body_demo")),
+            "gentle": self._gentle_reasons(care.gad_band(sum(s["gad_items"])), impact, body_state, bool(s.get("body_demo"))),
+        }
 
     def calibrate(self) -> None:
         if self.status != "planned":
@@ -310,6 +341,10 @@ class Session:
             "plan_decision": decision, "next_ladder_step": self._next_rung(),
         })
         ms = round((time.perf_counter() - started) * 1000)
+        if summary["source"] == "Simulated":
+            # A simulated reading says nothing about the person, so no model may describe it as if it did.
+            debrief.insight = (f"Your questionnaire was in the {band.lower()} range. The reading in this session was a simulated "
+                               "demo signal, not your body, so it can't be compared with how you felt.")
         self._log("Difficulty policy", f"Plan decision: {decision.replace('_', ' ')} (decided in fixed code)")
         self._log(f"Care summary ({source})", "Wrote the summary. All numbers come from stored records.", ms)
         self.report = {
@@ -354,4 +389,5 @@ class Session:
             "readings": self.readings, "data_label": self.stream.label, "gad": self._gad_view(),
             "pathway": care.PATHWAYS[care.gad_band(sum(self.setup["gad_items"]))],
             "verdict": self.verdicts[-1] if self.verdicts else None, "record_note": self.setup.get("record_note"),
+            "basis": self._basis(),
         }

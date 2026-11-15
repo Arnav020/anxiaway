@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from toward.agents import FAST_MODEL, PLAN_MODEL, AgentTeam, Voice, speech_metrics
 from toward.governor import Action, check_entry, output_is_safe
-from toward import record
+from toward import checks, device, record
 from toward.replay import INJECTABLE
 from toward.session import Session
 from toward.state import BadToken, seal, unseal
@@ -31,22 +31,59 @@ NOT_FOUND_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="robots" content="noindex"><link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/site.css"></head>
 <body><main class="notfound"><div class="notfound-face" aria-hidden="true"><i></i><i></i><b></b></div>
-<h1 class="heading-3">The panel can't find that page.</h1>
+<h1 class="heading-3">We can't find that page.</h1>
 <p class="body-3 muted">It may have moved, or the address may be wrong. Take your time.</p>
 <a class="btn btn-cta btn-lg" href="/">Back to home</a></main></body></html>"""
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
-app = FastAPI(title="Toward", docs_url=None, redoc_url=None)
+app = FastAPI(title="Toward", docs_url=None, redoc_url=None, openapi_url=None)
+# A guided session must rest on a recent check. Tests switch this off to exercise the session rules directly.
+REQUIRE_CHECK = True
 team = AgentTeam()
+scripted_team = AgentTeam()
+scripted_team.llm = None
 voice = Voice()
+
+
+@app.middleware("http")
+async def always_fresh(request: Request, call_next):
+    """Local pages and scripts are revalidated on every load, so an edit is never hidden by a stale copy."""
+    response = await call_next(request)
+    if not request.url.path.startswith(("/api/", "/img/", "/fonts/")):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 # Best effort limit per server instance, to slow down misuse of the public demo.
 _RATE_PER_MINUTE = 90
 _hits: dict[str, deque] = defaultdict(deque)
 
 
+# Language model calls per minute on this instance. Beyond it, scripted agents answer, so nothing breaks and the quota is protected.
+_LLM_PER_MINUTE = 40
+_llm_hits: deque = deque()
+
+
+def _llm_ok() -> bool:
+    now = time.monotonic()
+    while _llm_hits and now - _llm_hits[0] > 60:
+        _llm_hits.popleft()
+    if len(_llm_hits) >= _LLM_PER_MINUTE:
+        return False
+    _llm_hits.append(now)
+    return True
+
+
+def _client_of(request: Request) -> str:
+    # The host sets these two itself. x-forwarded-for can be written by the caller, so it comes last.
+    for header in ("x-vercel-forwarded-for", "x-real-ip", "x-forwarded-for"):
+        value = request.headers.get(header)
+        if value:
+            return value.split(",")[0].strip()
+    return request.client.host if request.client else "local"
+
+
 def _limit(request: Request) -> None:
-    client = request.headers.get("x-forwarded-for", request.client.host if request.client else "local").split(",")[0]
+    client = _client_of(request)
     now = time.monotonic()
     hits = _hits[client]
     while hits and now - hits[0] > 60:
@@ -61,11 +98,13 @@ class SetupIn(BaseModel):
     days_until: int = Field(ge=1, le=60)
     prediction: str = Field(min_length=5, max_length=300)
     belief_before: int = Field(ge=0, le=100)
-    gad_items: list[int] = Field(min_length=7, max_length=7)
-    self_harm: bool
-    heart_condition: bool
-    crisis: bool
-    consent: bool
+    # Either a recent check token, or the screening answers themselves.
+    check_token: str | None = Field(default=None, max_length=4000)
+    gad_items: list[int] | None = Field(default=None, min_length=7, max_length=7)
+    self_harm: bool = False
+    heart_condition: bool = False
+    crisis: bool = False
+    consent: bool = False
     history: list[dict] = Field(default_factory=list, max_length=200)
 
 
@@ -103,6 +142,32 @@ class WorryIn(BaseModel):
 class RecordIn(BaseModel):
     predictions: list[dict] = Field(default_factory=list, max_length=200)
     just_checked: str | None = Field(default=None, max_length=24)
+    checks: list[dict] | None = Field(default=None, max_length=200)
+
+
+class BodyIn(BaseModel):
+    state: str = Field(pattern="^(CALIBRATING|LOW|ENGAGED|HIGH|LIMIT|UNKNOWN)$")
+    source: str = Field(default="demo", pattern="^(demo|device)$")
+
+
+class CheckIn(BaseModel):
+    gad_items: list[int] = Field(min_length=7, max_length=7)
+    impact: int | None = Field(default=None, ge=0, le=3)
+    self_harm: bool = False
+    heart_condition: bool = False
+    crisis: bool = False
+    consent: bool = False
+    body: BodyIn | None = None
+    history: list[dict] = Field(default_factory=list, max_length=200)
+
+
+class ReadingIn(BaseModel):
+    mode: str = Field(default="demo", pattern="^(demo|device)$")
+    scenario: str = Field(default="calm", max_length=20)
+    t: int = Field(default=0, ge=0, le=10_000_000)
+    previous: float = Field(default=0.0, ge=-60, le=60)
+    baseline_hr: float | None = Field(default=None, ge=30, le=220)
+    baseline_eda: float | None = Field(default=None, ge=0, le=100)
 
 
 class TokenIn(BaseModel):
@@ -144,7 +209,43 @@ def _reply(session: Session) -> dict:
 
 @app.get("/api/status")
 def status() -> dict:
-    return {"llm": team.mode, "plan_model": PLAN_MODEL, "fast_model": FAST_MODEL, "injectable": list(INJECTABLE), "model_connected": False}
+    return {"llm": team.mode, "plan_model": PLAN_MODEL, "fast_model": FAST_MODEL, "injectable": list(INJECTABLE),
+            "model_connected": device.configured(), "device": device.status()}
+
+
+@app.get("/api/device/status")
+def device_status() -> dict:
+    return device.status()
+
+
+@app.post("/api/reading")
+def reading(body: ReadingIn, request: Request) -> dict:
+    """One body reading, classified by fixed code. No language model sees it."""
+    _limit(request)
+    if body.mode == "device":
+        if not device.configured():
+            raise HTTPException(409, "The wearable isn't connected yet. Use the demo stream, or skip the reading.")
+        latest = device.fetch_latest()
+        if latest is None:
+            raise HTTPException(503, "The wearable didn't send a usable reading. Check it's on, then try again.")
+        window = latest["samples"][-device.READING_S:]
+        summary = device.summarise(window, body.baseline_hr, body.baseline_eda, latest["verdict"], device.DEVICE_LABEL)
+        return {"summary": summary, "samples": device.sample_rows(window), "cursor": None}
+    samples, cursor = device.demo_samples(body.scenario, body.t, body.previous)
+    base_hr, base_eda = device.demo_baseline()
+    return {"summary": device.summarise(samples, base_hr, base_eda), "samples": device.sample_rows(samples), "cursor": cursor}
+
+
+@app.post("/api/check")
+def check(body: CheckIn, request: Request) -> dict:
+    """The anxiety check. Fixed code only, and nothing is stored."""
+    _limit(request)
+    if not body.consent:
+        raise HTTPException(422, "Consent is required before a check.")
+    if any(v not in (0, 1, 2, 3) for v in body.gad_items):
+        raise HTTPException(422, "GAD-7 answers must each be from 0 to 3.")
+    return checks.evaluate(body.gad_items, body.impact, body.self_harm, body.heart_condition, body.crisis,
+                           body.body.model_dump() if body.body else None, checks.parse_checks(body.history), _now_ms())
 
 
 @app.post("/api/screen")
@@ -161,14 +262,27 @@ def screen(body: ScreenIn, request: Request) -> dict:
 @app.post("/api/session")
 def create(setup: SetupIn, request: Request) -> dict:
     _limit(request)
+    if REQUIRE_CHECK and not setup.check_token:
+        raise HTTPException(409, "Guided sessions need an anxiety check from the last 24 hours. Please do a check first.")
+    if setup.check_token:
+        # The check already asked the safety questions and took consent, and it must be recent.
+        try:
+            basis = checks.open_token(setup.check_token)
+        except BadToken as exc:
+            raise HTTPException(409, "Guided sessions need an anxiety check from the last 24 hours. Please do a check first.") from exc
+        setup.gad_items = basis["gad_items"]
+        setup.consent, setup.self_harm, setup.heart_condition, setup.crisis = True, False, False, False
     if not setup.consent:
         raise HTTPException(422, "Consent is required before starting.")
-    if any(v not in (0, 1, 2, 3) for v in setup.gad_items):
+    if setup.gad_items is None or any(v not in (0, 1, 2, 3) for v in setup.gad_items):
         raise HTTPException(422, "GAD-7 answers must each be from 0 to 3.")
     # Only numbers and a theme from the record reach the planner, never the person's earlier words.
-    facts = setup.model_dump(exclude={"history"})
+    facts = setup.model_dump(exclude={"history", "check_token"})
+    facts["impact"] = basis["impact"] if setup.check_token else None
+    facts["body_state"] = basis["body_state"] if setup.check_token else None
+    facts["body_demo"] = basis["body_demo"] if setup.check_token else False
     facts["record_note"] = record.plan_note(record.parse_predictions(setup.history), _now_ms())
-    session = Session(facts, team)
+    session = Session(facts, team if _llm_ok() else scripted_team)
     session.start()
     return _reply(session)
 
@@ -190,7 +304,8 @@ def answer(body: AnswerIn, request: Request) -> dict:
     session = _load(body.token)
     metrics = speech_metrics(body.text, body.words)
     try:
-        verdict = body.model_verdict.model_dump() if body.model_verdict else None
+        # A verdict is only believed when the device link is switched on, so nobody can label their own as the model's.
+        verdict = body.model_verdict.model_dump() if body.model_verdict and device.configured() else None
         session.answer(body.text, body.source, body.pause_s, metrics, body.inject, verdict)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
@@ -276,14 +391,15 @@ def record_check(body: WorryIn, request: Request) -> dict:
 @app.post("/api/record/sharpen")
 def record_sharpen(body: WorryIn, request: Request) -> dict:
     _limit(request)
-    return record.sharpen(body.worry, team.llm)
+    return record.sharpen(body.worry, team.llm if _llm_ok() else None)
 
 
 @app.post("/api/record/review")
 def record_review(body: RecordIn, request: Request) -> dict:
     _limit(request)
-    client = team.llm.client if team.llm else None
-    return record.review(record.parse_predictions(body.predictions), _now_ms(), client, body.just_checked)
+    client = team.llm.client if team.llm and _llm_ok() else None
+    seen = None if body.checks is None else checks.parse_checks(body.checks)
+    return record.review(record.parse_predictions(body.predictions), _now_ms(), client, body.just_checked, seen)
 
 
 # Local development only. On Vercel the CDN serves public/ directly.

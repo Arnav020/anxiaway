@@ -3,33 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Your track record | Toward</title>
-<meta name="description" content="Log what your anxiety predicts, check what really happened, and let a care agent decide what to test next. Stored only on your device.">
+<title>Record | Toward</title>
+<meta name="description" content="Your anxiety checks over time, and what your anxiety predicted against what really happened. Stored only on your device.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#2B323B">
 <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/base.css">
 <link rel="stylesheet" href="/css/room.css">
 <link rel="stylesheet" href="/css/record.css">
+<link rel="stylesheet" href="/css/app.css">
 </head>
 <body class="rec-page">
 <a class="skip" href="#rec-main">Skip to content</a>
 <main class="rec" id="rec-main">
   <header class="rec-top no-print">
-    <a class="btn btn-white btn-sm" href="/"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Home</a>
+    <div class="page-head">
+      <span class="caption-3 eyebrow">Record</span>
+      <p class="title-2 muted">Everything you've logged, in one place you can share with a counsellor.</p>
+    </div>
     <div class="rec-top-actions">
       <button class="btn btn-white btn-sm" id="print-btn" type="button">Save or share as PDF</button>
-      <a class="btn btn-white btn-sm" href="/pitch">Live pitch mode</a>
-      <a class="btn btn-cta btn-sm" href="/checkin">New check-in</a>
+      <a class="btn btn-cta btn-sm" href="/checkin">New check</a>
     </div>
   </header>
 
   <section class="rec-hero">
     <div class="rec-hero-head">
-      <span class="caption-3">Your anxiety's track record</span>
+      <span class="caption-3">What your anxiety predicted, against what happened</span>
       <span class="rec-tag caption-3" id="sample-tag" hidden></span>
     </div>
-    <h1 class="heading-2" id="rec-headline">Anxiety makes predictions. Nobody checks them.</h1>
+    <h1 class="heading-2" id="rec-headline">Anxiety makes predictions. Check them against what happened.</h1>
     <p class="title-1" id="rec-state"></p>
     <div class="fbars" id="fbars" hidden></div>
     <dl class="rec-stats" id="rec-stats" hidden></dl>
@@ -37,6 +40,22 @@
       <a class="btn btn-cta btn-lg hero-cta" href="#add">Log your first prediction<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
       <button class="btn btn-plain hero-plain" id="sample-btn" type="button">See a sample record</button>
     </div>
+  </section>
+
+  <section class="rec-card clay" id="checks">
+    <div class="card-head">
+      <h2 class="heading-6">Your anxiety checks</h2>
+      <span class="tag tag-sand caption-3" id="checks-tag" hidden>Includes sample data</span>
+    </div>
+    <p class="body-6 muted" id="checks-empty">No checks yet. A check takes about two minutes: GAD-7, an optional body reading, and one clear result.</p>
+    <div class="grid-2" id="checks-body" hidden>
+      <div class="stack-sm">
+        <div class="chart-box checks-chart" id="checks-chart"></div>
+        <p class="caption-5 muted" id="checks-note"></p>
+      </div>
+      <ul class="check-rows" id="check-rows"></ul>
+    </div>
+    <div class="row no-print"><a class="btn btn-white btn-sm" href="/checkin">Do a check</a></div>
   </section>
 
   <p class="error" id="rec-error" role="alert" hidden></p>
@@ -93,7 +112,7 @@
           <h2 class="heading-6">What the agent decided</h2>
           <span class="caption-4 muted" id="agent-source"></span>
         </div>
-        <p class="body-6 muted" id="agent-empty">Log a prediction, and the agent will review your record and decide what comes next.</p>
+        <p class="body-6 muted" id="agent-empty">Do a check or log a prediction, and the agent will review your record and decide what comes next.</p>
         <div class="agent-loading" id="agent-loading" hidden aria-live="polite"><div class="skeleton-title"></div><div class="skeleton-line"></div><p class="body-6 muted">The agent is reading your record.</p></div>
         <div class="stack" id="agent-body" hidden>
           <p class="title-3" id="agent-pattern"></p>
@@ -130,6 +149,7 @@
     <div class="row-gap no-print">
       <button class="btn btn-plain btn-sm" id="clear-sample" type="button" hidden>Remove sample entries</button>
       <button class="btn btn-plain btn-sm" id="clear-all" type="button" hidden>Delete my whole record</button>
+      <a class="btn btn-plain btn-sm" href="/pitch">Live pitch mode</a>
     </div>
   </footer>
 </main>

@@ -180,6 +180,7 @@ class ScriptedAgents:
 _PLAN_SYSTEM = """You are the care planner in an anxiety support prototype. It is not therapy and never claims to treat anything.
 record_note, if present, summarises what happened with the person's earlier predictions. Use it to pitch the first step at a sensible level, and don't quote its numbers.
 The person has a situation their anxiety makes them avoid (event), a feared prediction, and a GAD-7 screening band with their strongest concerns.
+daily_life_impact and body_reading, if present, come from their latest anxiety check. When daily life is very or extremely difficult, or the body reading was well above baseline, make the early steps smaller and slower. Never mention these in the text.
 testable_version: rewrite their fear as one specific prediction they could test, in different words from theirs, naming an observable outcome. Under 20 words.
 target_pause_s: if the fear involves pausing or silence, the pause in seconds to practise (3 to 8). Otherwise 3.
 steps: 3 or 4 steps ordered by rising difficulty (1 to 5), each on a day from 1 to days_until. Use a gentler ladder for a Moderate band. Steps may include guided sessions and small real life actions.
@@ -267,7 +268,7 @@ class GroqAgents:
         return None
 
     def plan(self, facts: dict) -> LadderPlan | None:
-        allowed = {k: facts.get(k) for k in ("event", "days_until", "prediction", "gad_band", "concerns", "record_note")}
+        allowed = {k: facts.get(k) for k in ("event", "days_until", "prediction", "gad_band", "concerns", "record_note", "daily_life_impact", "body_reading")}
         # The plan is the first thing people see, so it gets one retry.
         for _ in range(2):
             result = self._call(PLAN_MODEL, _PLAN_SYSTEM, allowed, LadderPlan)
@@ -286,7 +287,7 @@ class GroqAgents:
             result = self._call(FAST_MODEL, _SCENE_SYSTEM, {k: facts[k] for k in keys}, SceneLine)
             if result is None:
                 return None
-            if not _GUIDE_NAMES.search(result.line):
+            if not _GUIDE_NAMES.search(result.line) and not _OFF_SCENE.search(result.line):
                 return result.line
         return None
 
@@ -323,9 +324,13 @@ def _clean_plan(plan: LadderPlan, days_until: int) -> LadderPlan:
 
 _AVOIDANCE = re.compile(
     r"(keep(ing)?\b.{0,30}\b(under|below|short|brief)|no (more|longer) than|at most|maximum|≤|"
-    r"less than \d|under \d|avoid(ing)? (the |any )?(pause|paus|silence)|without paus)",
+    r"less than \d|under \d|avoid(ing)? (the |any )?(pause|paus|silence)|without paus|"
+    r"breathing exercise|deep breath|slow breath|relaxation|meditat|calm(ing)? (down|yourself)|grounding exercise)",
     re.I,
 )
+# A guide speaks as a person in the scene. Soothing images and comments on feelings break that, and the rule against calming.
+_OFF_SCENE = re.compile(r"(\blike an? \w+ (tide|campfire|breeze|wave|river|blanket|hug)|comfort|sooth|peaceful|calming|relax|gentle (tide|wave|breeze)|"
+                        r"how does that feel|do you feel (safe|calm|better|that))", re.I)
 
 
 def teaches_avoidance(plan: LadderPlan) -> bool:
@@ -366,7 +371,7 @@ class AgentTeam:
 
     def scene(self, facts: dict) -> tuple[str, str]:
         line = self.llm.scene(facts) if self.llm else None
-        if line and len(line) <= 400 and output_is_safe(line):
+        if line and len(line) <= 400 and output_is_safe(line) and not _OFF_SCENE.search(line):
             return _tidy(line), "Groq"
         return self.scripted.scene(facts), "Scripted"
 

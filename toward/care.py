@@ -32,12 +32,12 @@ PATHWAYS = {
     "Minimal": {
         "name": "Stay aware",
         "why": "Your screening is in the minimal range, so light practice and tracking fit best.",
-        "steps": ["Practise when this situation comes up", "Repeat this check-in in two weeks"],
+        "steps": ["Practise when this situation comes up", "Repeat this check in two weeks"],
     },
     "Mild": {
         "name": "Guided practice",
         "why": "Your screening is in the mild range, so step by step practice is a reasonable next step.",
-        "steps": ["Follow your practice ladder", "Repeat this check-in in two weeks", "Talk to someone if things get worse"],
+        "steps": ["Follow your practice ladder", "Repeat this check in two weeks", "Talk to someone if things get worse"],
     },
     "Moderate": {
         "name": "Guided practice, with professional support",

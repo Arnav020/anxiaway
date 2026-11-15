@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practice | Toward</title>
+<meta name="description" content="Step back into what anxiety made you avoid: guided sessions with AI guides, a breathing pause, and small real world steps.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F2F1ED">
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/room.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<main class="page" id="main">
+  <div class="page-head rise">
+    <span class="caption-3 eyebrow">Practice</span>
+    <h1 class="heading-3">Step back into what anxiety made you avoid.</h1>
+    <p class="title-2 muted">Avoiding a situation keeps the fear going. Practice here is graded and at your pace: rehearse it, take one small real step, then record what actually happened.</p>
+  </div>
+
+  <div class="lock-note rise" id="need-check" hidden>
+    <span class="card-icon"><i class="icon i20" style="--i:url(/icons/shield-check.svg)"></i></span>
+    <div class="stack-xs"><strong class="title-3" id="need-title"></strong><span class="body-6" id="need-text"></span></div>
+    <a class="btn btn-cta btn-sm" id="need-go" href="/checkin?next=session">Do a check<i class="icon" style="--i:url(/icons/arrow-right.svg)"></i></a>
+  </div>
+
+  <section class="practice-grid">
+    <article class="practice-card lead clay rise">
+      <div class="stack">
+        <div class="row"><span class="tag tag-sand caption-3">Guided session</span><span class="caption-4 muted">About 10 minutes · voice or text</span></div>
+        <h2 class="heading-4">Rehearse the situation, with people who'd really be there.</h2>
+        <p class="body-3 muted">Three AI guides play the scene: a crowded place, a phone call, a clinic, a classroom. The agent plans graded steps, watches your readings, and holds the level steady. Fixed safety rules can stop it at any moment, and so can you.</p>
+        <div class="row">
+          <a class="btn btn-cta btn-lg" id="start-session" href="/session">Start a guided session<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
+        </div>
+        <p class="caption-5 muted">The guides are AI generated characters, not clinicians. This is practice support, not therapy.</p>
+      </div>
+      <div class="guide-row" aria-label="The three AI guides">
+        <figure><img src="/img/rao.jpg" alt="Asha Rao, an AI generated guide." loading="lazy"><figcaption>Asha Rao</figcaption></figure>
+        <figure><img src="/img/ellis.jpg" alt="Tom Ellis, an AI generated guide." loading="lazy"><figcaption>Tom Ellis</figcaption></figure>
+        <figure><img src="/img/kim.jpg" alt="Mina Kim, an AI generated guide." loading="lazy"><figcaption>Mina Kim</figcaption></figure>
+      </div>
+    </article>
+
+    <article class="practice-card clay rise" id="breathe">
+      <span class="card-icon" style="background: var(--sage)"><i class="icon i20" style="--i:url(/icons/wind.svg)"></i></span>
+      <h2 class="heading-6">A two-minute breathing pause</h2>
+      <p class="body-6 muted">Slow, paced breathing: in for four, out for six. It's a pause for a hard moment. It doesn't test a fear, so it sits beside practice and doesn't replace it.</p>
+      <button class="btn btn-white" id="breath-open" type="button">Start breathing</button>
+    </article>
+
+    <article class="practice-card clay rise">
+      <span class="card-icon" style="background: var(--terracotta); color: #FFF"><i class="icon i20" style="--i:url(/icons/footprints.svg)"></i></span>
+      <h2 class="heading-6">This week's real world step</h2>
+      <p class="body-6" id="mission-text"></p>
+      <p class="caption-5 muted" id="mission-meta"></p>
+      <a class="btn btn-white" id="mission-go" href="/record#add">Log a prediction first</a>
+    </article>
+
+    <article class="practice-card clay rise">
+      <span class="card-icon"><i class="icon i20" style="--i:url(/icons/target.svg)"></i></span>
+      <h2 class="heading-6">Predictions you could practise</h2>
+      <p class="body-6 muted" id="open-empty">Nothing open right now. Log what your anxiety predicts, then practise that exact situation.</p>
+      <ul class="stack-sm" id="open-list"></ul>
+      <a class="btn btn-white" href="/record">Open my record</a>
+    </article>
+  </section>
+
+  <section class="card clay rise">
+    <span class="caption-3 muted">How practice is kept safe</span>
+    <div class="grid-3">
+      <div class="stack-sm"><strong class="title-3">A recent check comes first</strong><p class="body-6 muted">Guided sessions need a check from the last 24 hours. A severe score, a heart condition or a crisis answer means no session, and a route to real support.</p></div>
+      <div class="stack-sm"><strong class="title-3">The level never jumps on stress</strong><p class="body-6 muted">Rising arousal doesn't make it easier or harder. Only a calm reading lets the next step move up, and a safety limit pauses everything.</p></div>
+      <div class="stack-sm"><strong class="title-3">Stop always works</strong><p class="body-6 muted">One tap, or say stop. It ends at once with no persuasion. Crisis language gets fixed words written by people, never a model.</p></div>
+    </div>
+  </section>
+</main>
+
+<dialog class="dlg dlg-wide clay" id="breath-dlg" aria-labelledby="breath-title">
+  <h2 class="heading-5" id="breath-title">Breathe with the circle</h2>
+  <div class="breath-stage">
+    <div class="breath-orb" id="orb"><span id="orb-count">4</span></div>
+    <strong class="heading-6" id="breath-say" aria-live="polite">Ready when you are</strong>
+    <div class="progress-line" style="width: 100%"><i id="breath-bar"></i></div>
+  </div>
+  <p class="caption-5 muted">If you feel dizzy, stop and breathe normally. If you have chest pain or trouble breathing, get medical help.</p>
+  <div class="dlg-actions">
+    <button class="btn btn-white" id="breath-close" type="button">Close</button>
+    <button class="btn btn-cta" id="breath-start" type="button">Start</button>
+  </div>
+</dialog>
+<script type="module" src="/js/practice.js"></script>
+</body>
+</html>

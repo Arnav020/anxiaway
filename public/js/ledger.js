@@ -121,7 +121,7 @@ export function renderBars(root, stats) {
   root.replaceChildren(row("How likely it felt, on average", stats.forecast_pct, "fill-forecast"), row("How often it happened", stats.actual_pct, "fill-actual"));
 }
 const TOOL_LABEL = {
-  safety_scan: "Safety check", get_record_stats: "Read the numbers", list_open_predictions: "Read open predictions",
+  safety_scan: "Safety check", get_screening_trend: "Read the anxiety checks", get_record_stats: "Read the numbers", list_open_predictions: "Read open predictions",
   list_checked_predictions: "Read checked predictions", compare_themes: "Compared themes", schedule_follow_up: "Scheduled a follow up", finish_review: "Made a decision",
 };
 export async function renderTrace(list, trace, animate = false) {

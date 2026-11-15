@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home | Toward</title>
+<meta name="description" content="Your anxiety check, body readings, practice and record in one place, with a care agent that decides the next step.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F2F1ED">
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<main class="page" id="main">
+  <section class="feature rise" aria-labelledby="today-title">
+    <div class="feature-copy">
+      <div class="row"><span class="caption-3" id="today-date"></span><span class="tag caption-3" id="sample-tag" hidden>Sample data, not a real person</span></div>
+      <h1 class="heading-3" id="today-title"></h1>
+      <p class="title-2" id="today-sub"></p>
+      <div class="row">
+        <a class="btn btn-cta btn-lg" id="today-cta" href="/checkin"><span></span><i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
+        <button class="btn btn-plain" id="today-more" type="button"></button>
+      </div>
+    </div>
+    <div id="today-gauge"></div>
+  </section>
+
+  <section class="start-steps" id="start" hidden aria-label="How to begin">
+    <div class="start-step clay rise"><h2 class="heading-6">Check</h2><p class="body-6 muted">Seven screening questions and three safety questions. You see your result straight away.</p></div>
+    <div class="start-step clay rise"><h2 class="heading-6">Read your body</h2><p class="body-6 muted">Our wearable adds heart, skin and movement signals. It's being integrated, so today you can try a labelled demo reading.</p></div>
+    <div class="start-step clay rise"><h2 class="heading-6">Act on it</h2><p class="body-6 muted">The agent plans a next step: practise a situation, test a prediction in real life, or speak to a person.</p></div>
+  </section>
+
+  <section class="tiles" aria-label="Where things stand">
+    <a class="tile-card clay rise" href="/record#checks">
+      <div class="tile-top"><span class="caption-3 muted">What you reported</span><i class="icon i20" style="--i:url(/icons/clipboard-check.svg)"></i></div>
+      <strong class="big" id="t-score"></strong>
+      <span class="body-5" id="t-score-text"></span>
+      <div class="chart-box" id="t-spark" hidden></div>
+    </a>
+    <a class="tile-card clay rise" href="/vitals">
+      <div class="tile-top"><span class="caption-3 muted">What your body showed</span><i class="icon i20" style="--i:url(/icons/heartbeat.svg)"></i></div>
+      <strong class="heading-5" id="t-body"></strong>
+      <span class="body-5" id="t-body-text"></span>
+      <div id="t-mask"></div>
+    </a>
+    <a class="tile-card clay rise" href="/record">
+      <div class="tile-top"><span class="caption-3 muted">What your anxiety predicted</span><i class="icon i20" style="--i:url(/icons/target.svg)"></i></div>
+      <strong class="heading-5" id="t-pred"></strong>
+      <span class="body-5" id="t-pred-text"></span>
+      <div class="mini-bars" id="t-bars" hidden>
+        <div class="mini-bar"><span class="caption-4"><span>How likely it felt</span><span class="mono" id="t-forecast"></span></span><div class="mini-track"><i id="t-forecast-bar"></i></div></div>
+        <div class="mini-bar"><span class="caption-4"><span>How often it happened</span><span class="mono" id="t-actual"></span></span><div class="mini-track"><i id="t-actual-bar"></i></div></div>
+      </div>
+    </a>
+  </section>
+
+  <section class="agent-panel rise" id="agent" aria-label="The agent's next step">
+    <div class="agent-main"></div>
+    <div class="agent-trace"></div>
+  </section>
+
+  <section class="quick" aria-label="Quick actions">
+    <a class="quick-btn rise" href="/practice#breathe"><span class="card-icon"><i class="icon i20" style="--i:url(/icons/wind.svg)"></i></span><span class="stack-xs"><strong class="title-3">Breathe</strong><span class="caption-5 muted">A two-minute pause</span></span></a>
+    <a class="quick-btn rise" href="/practice"><span class="card-icon"><i class="icon i20" style="--i:url(/icons/path.svg)"></i></span><span class="stack-xs"><strong class="title-3">Practise</strong><span class="caption-5 muted">A situation you avoid</span></span></a>
+    <a class="quick-btn rise" href="/record#add"><span class="card-icon"><i class="icon i20" style="--i:url(/icons/plus.svg)"></i></span><span class="stack-xs"><strong class="title-3">Log a prediction</strong><span class="caption-5 muted">Then check what happened</span></span></a>
+  </section>
+
+  <p class="row caption-4 muted">
+    <span>Everything here is stored in this browser only, with no account.</span>
+    <button class="link-quiet caption-4" id="sample-on" type="button">See it with sample data</button>
+    <button class="link-quiet caption-4" id="sample-off" type="button" hidden>Remove sample data</button>
+  </p>
+</main>
+<script type="module" src="/js/home.js"></script>
+</body>
+</html>

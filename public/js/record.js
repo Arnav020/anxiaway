@@ -1,11 +1,17 @@
 import * as ledger from "/js/ledger.js";
 import { el, OUTCOME, COMPARED, COPED, segGroup } from "/js/ledger.js";
+import * as store from "/js/store.js";
+import { mountShell } from "/js/shell.js";
+
+mountShell("record");
+const practiseHref = (id) => (store.sessionCheck() ? `/session?pred=${encodeURIComponent(id)}` : `/checkin?next=session&pred=${encodeURIComponent(id)}`);
 
 const $ = (id) => document.getElementById(id);
 const DAY = 86400000;
 const when = (ms) => new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 const addState = { due: null, belief: 70, worry: "", theme: "other", prediction: "", check: "" };
 let lastReview = null;
+let lastChecksKey = sessionStorage.getItem("toward.rec.checks") || "";
 let reviewRun = 0;
 
 function showError(id, message) {
@@ -43,7 +49,7 @@ function renderHero(stats) {
   tag.hidden = !stats.sample_count;
   tag.textContent = stats.sample_count === stats.total ? "Sample data, not a real person" : `Includes ${stats.sample_count} sample ${stats.sample_count === 1 ? "entry" : "entries"}`;
   if (empty) {
-    $("rec-headline").textContent = "Anxiety makes predictions. Nobody checks them.";
+    $("rec-headline").textContent = "Anxiety makes predictions. Check them against what happened.";
     $("rec-state").textContent = "Log what your anxiety says will happen, then come back and record what actually did. It's kept only in this browser, with no account.";
     return;
   }
@@ -147,7 +153,7 @@ function renderLists() {
     check.type = "button";
     check.addEventListener("click", () => { checkingId = p.id; render(); $("due-card").scrollIntoView({ behavior: "smooth", block: "start" }); });
     const practise = el("a", "btn btn-plain btn-sm", "Practise this");
-    practise.href = `/checkin?pred=${encodeURIComponent(p.id)}`;
+    practise.href = practiseHref(p.id);
     row.append(check, practise);
     li.append(text, row);
     return li;
@@ -172,8 +178,9 @@ function renderLists() {
     return li;
   }));
   const all = ledger.all();
-  $("clear-sample").hidden = !all.some((p) => p.sample);
-  $("clear-all").hidden = !all.length;
+  const checks = store.allChecks();
+  $("clear-sample").hidden = !all.some((p) => p.sample) && !checks.some((c) => c.sample);
+  $("clear-all").hidden = !all.length && !checks.length;
 }
 
 /* ---------- The agent ---------- */
@@ -193,9 +200,9 @@ function paintReview(review, animate) {
   $("agent-target").hidden = !target;
   $("agent-why").textContent = `Why: ${review.why}`;
   const go = $("agent-go");
-  const label = { check: "Record what happened", test: "Start a guided session on this", add: "Log a prediction" }[review.kind];
+  const label = { check: "Record what happened", test: "Practise this situation", add: "Log a prediction", screen: "Do a check", person: "Save my record to share" }[review.kind];
   go.textContent = label;
-  go.href = review.kind === "test" && target ? `/checkin?pred=${encodeURIComponent(target.id)}` : review.kind === "add" ? "#add" : "#due-card";
+  go.href = review.kind === "test" && target ? practiseHref(target.id) : review.kind === "add" ? "#add" : review.kind === "screen" ? "/checkin" : review.kind === "person" ? "#checks" : "#due-card";
   $("agent-ics").hidden = !target;
   $("agent-support").hidden = !review.support_note;
   $("agent-support").textContent = review.support_note || "";
@@ -203,8 +210,10 @@ function paintReview(review, animate) {
 }
 async function runReview(force = false) {
   const list = ledger.all();
+  const checks = store.checksForApi();
+  const checksKey = JSON.stringify(checks);
   showError("agent-error");
-  if (!list.length) {
+  if (!list.length && !checks.length) {
     lastReview = null;
     $("agent-empty").hidden = false;
     $("agent-body").hidden = true;
@@ -212,19 +221,21 @@ async function runReview(force = false) {
     $("agent-source").textContent = "";
     return;
   }
-  const cached = force ? null : ledger.cachedReview();
+  const cached = force || checksKey !== lastChecksKey ? null : ledger.cachedReview();
+  lastChecksKey = checksKey;
   if (cached) return paintReview(cached, false);
   const mine = ++reviewRun;
   $("agent-empty").hidden = true;
   $("agent-body").hidden = true;
   $("agent-loading").hidden = false;
   try {
-    const review = await ledger.post("record/review", { predictions: ledger.forApi() });
+    const review = await ledger.post("record/review", { predictions: ledger.forApi(), checks });
     if (mine !== reviewRun) return;
     $("agent-loading").hidden = true;
     if (review.status !== "ok") return showSupport(review);
     ledger.applyFollowUps(review.follow_ups);
     ledger.saveReview(review);
+    try { sessionStorage.setItem("toward.rec.checks", checksKey); } catch { /* optional */ }
     renderLists();
     paintReview(review, true);
   } catch (err) {
@@ -236,6 +247,7 @@ async function runReview(force = false) {
 }
 $("agent-again").addEventListener("click", () => runReview(true));
 $("agent-go").addEventListener("click", (e) => {
+  if (lastReview?.kind === "person") { e.preventDefault(); print(); return; }
   if (lastReview?.kind === "check" && lastReview.prediction_id) {
     e.preventDefault();
     checkingId = lastReview.prediction_id;
@@ -310,15 +322,51 @@ $("confirm-form").addEventListener("submit", async (e) => {
 });
 
 /* ---------- Page ---------- */
-$("sample-btn").addEventListener("click", () => { ledger.loadSample(); render(); });
-$("clear-sample").addEventListener("click", () => askConfirm("Remove the sample entries?", "Your own predictions stay.", () => ledger.clearSample()));
-$("clear-all").addEventListener("click", () => askConfirm("Delete your whole record?", "This removes every prediction from this browser, and it can't be undone. We don't hold a copy.", () => ledger.clearAll()));
+$("sample-btn").addEventListener("click", () => { ledger.loadSample(); store.loadSampleChecks(); render(); });
+$("clear-sample").addEventListener("click", () => askConfirm("Remove the sample entries?", "Your own checks and predictions stay.", () => { ledger.clearSample(); store.clearSampleChecks(); }));
+$("clear-all").addEventListener("click", () => askConfirm("Delete your whole record?", "This removes every check and prediction from this browser, and it can't be undone. We don't hold a copy.", () => { ledger.clearAll(); store.clearChecks(); }));
+
+/* ---------- Checks over time ---------- */
+function renderChecks() {
+  const checks = store.allChecks();
+  $("checks-empty").hidden = checks.length > 0;
+  $("checks-body").hidden = !checks.length;
+  $("checks-tag").hidden = !checks.some((c) => c.sample);
+  if (!checks.length) return;
+  const shown = checks.slice(-12);
+  const chart = $("checks-chart");
+  store.lineChart(chart, shown.map((c) => c.score), { min: 0, max: 21, color: "#2F3E52", fill: true, dots: true, label: `GAD-7 scores across your last ${shown.length} checks` });
+  const lines = el("div", "band-lines");
+  [[5, "Mild"], [10, "Moderate"], [15, "Severe"]].forEach(([value, name]) => {
+    const top = `${8 + (1 - value / 21) * 84}%`;
+    const rule = el("i");
+    rule.style.top = top;
+    const tag = el("span", "", `${name} ${value}+`);
+    tag.style.top = top;
+    lines.append(rule, tag);
+  });
+  chart.append(lines);
+  const first = shown[0], last = shown.at(-1);
+  $("checks-note").textContent = shown.length > 1
+    ? `GAD-7 score, from ${store.dateText(first.at)} to ${store.dateText(last.at)}. A change of a few points between checks is normal.`
+    : "GAD-7 score. Check again in two weeks to see a trend.";
+  $("check-rows").replaceChildren(...[...checks].reverse().slice(0, 8).map((c) => {
+    const li = el("li", "check-row");
+    const body = el("div", "stack-xs");
+    body.append(el("span", "title-4", `${c.score} of 21`), el("span", "caption-5 muted", `${c.body ? `${c.body.title} · ${c.body.source}` : "No body reading"}${c.sample ? " · Sample" : ""}`));
+    const chip = el("span", "band-chip caption-3", c.band);
+    chip.dataset.band = c.band;
+    li.append(el("span", "caption-4 muted mono", store.dateText(c.at)), body, chip);
+    return li;
+  }));
+}
 $("print-btn").addEventListener("click", () => print());
 
 async function render() {
   showError("rec-error");
   $("storage-warn").hidden = ledger.isPersistent();
   renderLists();
+  renderChecks();
   try {
     renderHero(await ledger.post("record/stats", { predictions: ledger.forApi() }));
   } catch (err) {
@@ -326,5 +374,5 @@ async function render() {
   }
   runReview();
 }
-if (new URLSearchParams(location.search).get("sample") === "1" && !ledger.all().length) ledger.loadSample();
+if (new URLSearchParams(location.search).get("sample") === "1" && !ledger.all().length) { ledger.loadSample(); if (!store.allChecks().length) store.loadSampleChecks(); }
 render();

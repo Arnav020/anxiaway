@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wearable | Toward</title>
+<meta name="description" content="Live body signals from the Toward wearable: heart, skin conductance and movement, read by fixed code and our anxiety model.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#F2F1ED">
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/room.css">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<main class="page" id="main">
+  <section class="feature rise" aria-labelledby="v-title">
+    <div class="feature-copy">
+      <div class="row"><span class="caption-3">Wearable</span><span class="tag caption-3" id="v-status">Integrating soon</span></div>
+      <h1 class="heading-3" id="v-title">Your body's side of the story.</h1>
+      <p class="title-2" id="v-sub">Our wearable prototype reads heart rhythm, pulse, skin conductance and movement. It's being linked to this app, so the signals below are a labelled demo stream until then.</p>
+      <div id="v-mask"></div>
+      <ol class="connect-steps body-5">
+        <li><span>Wear the device, with its electrodes and sensors attached.</span></li>
+        <li><span>Open the Toward mobile app, which receives the signals from the device.</span></li>
+        <li><span>Readings arrive here by themselves. Nothing needs pairing on this page.</span></li>
+      </ol>
+    </div>
+    <figure class="stack-sm" style="margin: 0">
+      <button class="photo-open device-photo" type="button" aria-haspopup="dialog" data-caption="Our actual capstone prototype. ECG, PPG, skin conductance and motion sensors on an ESP32.">
+        <img src="/img/prototype.jpg" alt="The team's wearable prototype: a black pouch holding the electronics, with ECG electrodes and sensor leads.">
+        <span class="photo-hint caption-3"><i class="icon i16" style="--i:url(/icons/arrows-out.svg)"></i>View full photo</span>
+      </button>
+      <figcaption class="caption-4" style="color: #C9C6BC">Our capstone prototype, unpolished and real: 4 sensors on an ESP32.</figcaption>
+    </figure>
+  </section>
+
+  <section class="card clay rise" aria-labelledby="live-title">
+    <div class="live-head">
+      <span class="row"><i class="live-dot" id="live-dot"></i><h2 class="heading-6" id="live-title">Live signals</h2><span class="tag tag-sand caption-3" id="live-source">Demo stream, synthetic</span></span>
+      <span class="row">
+        <span class="state-pill" id="live-state" data-state="CALIBRATING"><i></i><span id="live-state-text">Paused</span></span>
+        <button class="btn btn-cta btn-sm" id="live-toggle" type="button">Play demo stream</button>
+      </span>
+    </div>
+    <div class="signal-grid">
+      <div class="signal clay"><div class="signal-top caption-3"><span>Heart rate</span><span id="sig-hr-src">ECG</span></div><strong><span id="sig-hr">–</span> <small>bpm</small></strong><div class="chart-box" id="ch-hr"></div></div>
+      <div class="signal clay"><div class="signal-top caption-3"><span>Skin conductance</span><span>EDA</span></div><strong><span id="sig-eda">–</span> <small>µS</small></strong><div class="chart-box" id="ch-eda"></div></div>
+      <div class="signal clay"><div class="signal-top caption-3"><span>Movement</span><span>IMU</span></div><strong><span id="sig-motion">–</span> <small>g</small></strong><div class="chart-box" id="ch-motion"></div></div>
+      <div class="signal clay"><div class="signal-top caption-3"><span>Signal quality</span><span>All</span></div><strong><span id="sig-q">–</span> <small>%</small></strong><div class="chart-box" id="ch-q"></div></div>
+    </div>
+    <div class="stack-sm">
+      <div class="row" style="justify-content: space-between"><span class="caption-4 muted">10 second windows, moving every 5 seconds</span><span class="caption-4 muted mono" id="win-count">0 windows</span></div>
+      <div class="windows" id="windows" aria-hidden="true"></div>
+    </div>
+    <p class="title-3" id="live-text">Press play to see how a reading is taken.</p>
+    <div class="stack-sm" id="scenario-box">
+      <span class="caption-4 muted">Demo scenario. Change it to see what the system does with movement or a lost sensor.</span>
+      <div class="chips chips-sm" id="scenarios" role="radiogroup" aria-label="Demo scenario"></div>
+    </div>
+  </section>
+
+  <section class="stack rise" aria-labelledby="flow-title">
+    <div class="page-head">
+      <span class="caption-3 eyebrow">From signal to next step</span>
+      <h2 class="heading-4" id="flow-title">What happens to a reading.</h2>
+    </div>
+    <ol class="flow">
+      <li class="flow-step clay"><i class="icon i24" style="--i:url(/icons/watch.svg)"></i><strong class="title-3">Wearable</strong><span class="body-6 muted">ECG, pulse, skin conductance and movement, sampled on the device.</span></li>
+      <li class="flow-step clay"><i class="icon i24" style="--i:url(/icons/shield-check.svg)"></i><strong class="title-3">Signal Layer</strong><span class="body-6 muted">Fixed code compares you with your own baseline, and rejects movement and weak signals.</span></li>
+      <li class="flow-step clay"><i class="icon i24" style="--i:url(/icons/brain.svg)"></i><strong class="title-3">Anxiety model</strong><span class="body-6 muted">Designed for five inputs. Whichever are missing are marked absent, so it still gives a reading.</span></li>
+      <li class="flow-step clay is-agent"><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><strong class="title-3">Care agent</strong><span class="body-6 muted">Uses the reading beside your answers to plan the next step. A high reading only makes it more careful.</span></li>
+    </ol>
+  </section>
+
+  <div class="grid-2">
+    <section class="card clay rise">
+      <span class="caption-3 muted">Why EEG isn't on the device</span>
+      <h2 class="heading-6">Five inputs in the model, four on your body.</h2>
+      <p class="body-3 muted">Our model design learns from brain activity (EEG) in clinical-grade research recordings. Low-cost EEG sensors are too noisy to match that, so we left EEG off the wearable instead of feeding the model a poor signal. The model is being trained to work when inputs are missing, and here EEG is always marked absent.</p>
+      <p class="caption-5 muted">The model is still being trained and validated. Until it's connected, any model reading in this app is a labelled simulation.</p>
+    </section>
+    <section class="card clay rise">
+      <span class="caption-3 muted">What a reading can't tell you</span>
+      <h2 class="heading-6">A raised heart rate isn't anxiety.</h2>
+      <p class="body-3 muted">Caffeine, exercise, illness, heat and talking all raise it. That's why Toward compares you with your own baseline, keeps the reading apart from your answers, and never calls a reading a diagnosis.</p>
+      <a class="btn btn-white btn-sm" href="/checkin" style="align-self: flex-start">Take a check with a reading<i class="icon" style="--i:url(/icons/arrow-right.svg)"></i></a>
+    </section>
+  </div>
+
+  <details class="card clay rise">
+    <summary class="title-3">For the team: how the device connects</summary>
+    <div class="stack-sm">
+      <p class="body-6 muted">This app pulls the latest readings from the same API our mobile app uses. Set <span class="mono">TOWARD_DEVICE_API_URL</span> on the server (and <span class="mono">TOWARD_DEVICE_API_KEY</span> if needed), and the wearable option switches on everywhere. One sample a second is expected.</p>
+      <div class="code-box" id="contract"></div>
+      <p class="caption-5 muted" id="contract-status"></p>
+    </div>
+  </details>
+</main>
+<script type="module" src="/js/vitals.js"></script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 """Fixed-code Safety Governor. It can overrule every LLM.
 
-Keyword detection will miss cases, and the cut-offs need counsellor review.
+Phrase matching will still miss some wordings, so every language model output is scanned as well,
+and the cut-offs need counsellor review.
 """
 from __future__ import annotations
 
@@ -29,9 +30,23 @@ MEDICAL_TEXT = (
 )
 
 _CRISIS = re.compile(
-    r"(suicid|kill myself|end my life|want to die|self[- ]?harm|hurt myself|no reason to live)",
+    r"(suicid|kill(ing)? ?my ?self|end(ing|ed)? (it all|everything|my (own )?life|my existence)|tak(e|ing) my (own )?life|"
+    r"want(ed|ing)? to die|wish i (was|were) dead|rather be dead|better off (dead|without me)|"
+    r"(not|n'?t) (want to )?(be|being) (alive|here) any ?more|do(n'?t| not) want to (live|be alive|exist|wake up)|"
+    r"no (reason|point) (to|in) liv|self[- ]?harm|(hurt|harm|cut|hang|shoot|drown|poison)(ing)? ?my ?self|"
+    r"overdos|lethal|jump(ing)? (off|from) (a |the )?(bridge|building|roof|terrace|balcony)|"
+    r"marna chaht|mar jaana chaht|mar jana chaht|jaan de (du|doon|dunga|dungi)|khud ?kushi|aa?tma ?hatya|"
+    r"खुदकुशी|आत्महत्या|मरना चाहत|जान दे)",
     re.I,
 )
+# People, and models, write around filters. These swaps undo the common ones before matching.
+_LEET = str.maketrans({"1": "i", "!": "i", "3": "e", "0": "o", "@": "a", "$": "s", "4": "a", "5": "s", "*": "", "_": " ", "-": " "})
+
+
+def crisis_in(text: str) -> bool:
+    """True when a text reads as self harm, in plain or lightly disguised wording."""
+    plain = re.sub(r"\s+", " ", text.lower())
+    return bool(_CRISIS.search(plain) or _CRISIS.search(plain.translate(_LEET)))
 _PHYSICAL = re.compile(
     r"(chest pain|chest hurts|faint|can'?t breathe|cannot breathe|trouble breathing|passing out)",
     re.I,
@@ -77,7 +92,7 @@ def check_entry(gad7: int, self_harm: bool, heart_condition: bool, crisis: bool)
 
 
 def check_user_text(text: str) -> Decision:
-    if _CRISIS.search(text):
+    if crisis_in(text):
         return Decision(Action.CRISIS, "Self-harm language: fixed response, no LLM", CRISIS_RESOURCES)
     if _PHYSICAL.search(text):
         return Decision(Action.MEDICAL, "Physical symptom mentioned", MEDICAL_TEXT)
@@ -110,5 +125,5 @@ def check_session(elapsed_s: int) -> Decision:
 
 
 def output_is_safe(text: str) -> bool:
-    """Reject panel lines that comment on the user's state, diagnose or score."""
-    return not _UNSAFE_OUTPUT.search(text)
+    """Reject model text that comments on the user's state, diagnoses, scores, or touches self harm."""
+    return not _UNSAFE_OUTPUT.search(text) and not crisis_in(text)

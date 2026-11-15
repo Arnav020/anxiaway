@@ -3,409 +3,206 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Anxiety check-in | Toward</title>
-<meta name="description" content="An anxiety check-in with GAD-7, a wearable and model reading, and guided care steps. A research prototype, not therapy or diagnosis.">
+<title>Anxiety check | Toward</title>
+<meta name="description" content="A two-minute anxiety check: GAD-7 screening, an optional body reading from our wearable, and one clear result. A research prototype, not a diagnosis.">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#2B323B">
+<meta name="theme-color" content="#F2F1ED">
 <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/base.css">
 <link rel="stylesheet" href="/css/room.css">
+<link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-<a class="skip" href="#app">Skip to content</a>
+<a class="skip" href="#main">Skip to content</a>
+<main class="page page-narrow" id="main">
+  <header class="check-top no-print" id="check-top">
+    <button class="btn btn-white btn-sm" id="back" type="button"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i><span id="back-label">Home</span></button>
+    <div class="pips" id="pips" role="progressbar" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" aria-label="Progress through the check"><span></span><span></span><span></span><span></span><span></span></div>
+    <button class="btn btn-plain btn-sm" id="sample" type="button">Use sample answers</button>
+  </header>
 
-<div id="app">
-  <div class="wizard" id="wizard">
-    <header class="wiz-top">
-      <button class="btn btn-white btn-sm" id="wiz-back" type="button"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i><span id="wiz-back-label">Home</span></button>
-      <div class="wiz-progress" role="progressbar" aria-valuemin="1" aria-valuemax="6" aria-valuenow="1" id="wiz-bar"><span></span><span></span><span></span><span></span><span></span><span></span></div>
-      <button class="btn btn-plain btn-sm" id="wiz-sample" type="button">Use a sample profile</button>
-    </header>
-
-    <form class="wiz-step" id="w-event" novalidate>
-      <span class="caption-3 eyebrow">Anxiety check-in · Step 1 of 6</span>
-      <h1 class="heading-3">Where does anxiety show up for you?</h1>
-      <p class="body-3 muted">Pick something real that you've been dreading or avoiding.</p>
-      <p class="body-5 pred-banner" id="pred-banner" hidden></p>
-      <div class="chips" id="event-chips">
-        <button class="chip" type="button">Speaking up in class or meetings</button>
-        <button class="chip" type="button">An upcoming exam or viva</button>
-        <button class="chip" type="button">Meeting new people</button>
-        <button class="chip" type="button">Making a difficult phone call</button>
-        <button class="chip" type="button">Going somewhere crowded</button>
-        <button class="chip" type="button">A job interview</button>
-      </div>
-      <label class="field"><span class="title-4">In your own words</span><input id="f-event" maxlength="120" placeholder="The situation that makes you anxious" autocomplete="off"></label>
-      <label class="field"><span class="title-4">When would you like to feel ready? <output class="mono" id="o-days">In 7 days</output></span>
-        <input id="f-days" type="range" min="1" max="30" value="7"></label>
-      <p class="error" id="e-event" role="alert" hidden></p>
-      <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-    </form>
-
-    <form class="wiz-step" id="w-fear" novalidate hidden>
-      <span class="caption-3 eyebrow">Anxiety check-in · Step 2 of 6</span>
-      <h1 class="heading-3">What does your anxiety say will happen?</h1>
-      <p class="body-3 muted">Be specific. An exact prediction is one you can actually check later.</p>
-      <div class="chips" id="fear-chips">
-        <button class="chip" type="button">If I speak up, people will think I don't know what I'm talking about.</button>
-        <button class="chip" type="button">If I can't answer, I'll freeze and everyone will notice.</button>
-        <button class="chip" type="button">My anxiety will get so bad that I'll have to leave.</button>
-      </div>
-      <label class="field"><span class="visually-hidden">Your prediction</span><textarea id="f-pred" rows="3" maxlength="300" placeholder="If I..., then..."></textarea></label>
-      <div class="dial clay">
-        <div><span class="title-4">How likely does that feel right now?</span><span class="caption-5 muted">You'll rate this again at the end.</span></div>
-        <output class="heading-2 mono" id="o-belief">80%</output>
-        <input id="f-belief" type="range" min="0" max="100" value="80" aria-label="How likely it feels, in percent">
-      </div>
-      <p class="error" id="e-fear" role="alert" hidden></p>
-      <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-    </form>
-
-    <form class="wiz-step" id="w-gad" novalidate hidden>
-      <span class="caption-3 eyebrow">Anxiety check-in · Step 3 of 6</span>
-      <h1 class="heading-3">Your GAD-7 screening.</h1>
-      <p class="body-3 muted">Over the last two weeks, how often have you been bothered by the following? This is a widely used screening questionnaire. It doesn't diagnose anything.</p>
-      <ol class="gad" id="gad"></ol>
-      <p class="error" id="e-gad" role="alert" hidden></p>
-      <button class="btn btn-cta btn-lg wiz-next" type="submit">See my result<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-    </form>
-
-    <section class="wiz-step" id="w-result" hidden>
-      <span class="caption-3 eyebrow">Your GAD-7 result</span>
-      <div class="result clay">
-        <div class="result-score">
-          <strong class="heading-1 mono" id="res-score"></strong>
-          <span class="body-5">out of 21</span>
-        </div>
-        <div class="result-body">
-          <h1 class="heading-4" id="res-band"></h1>
-          <div class="band-bar" aria-hidden="true"><span></span><span></span><span></span><span></span><i id="res-marker"></i></div>
-          <div class="band-labels caption-5"><span>Minimal</span><span>Mild</span><span>Moderate</span><span>Severe</span></div>
-          <p class="body-6 muted">A screening result, not a diagnosis. It tells the agent how gently to plan.</p>
-        </div>
-      </div>
-      <div class="concerns clay">
-        <h2 class="title-3">What stood out in your answers</h2>
-        <ul class="body-6" id="res-concerns"></ul>
-      </div>
-      <button class="btn btn-cta btn-lg wiz-next" id="result-next" type="button">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-    </section>
-
-    <form class="wiz-step" id="w-safety" novalidate hidden>
-      <span class="caption-3 eyebrow">Anxiety check-in · Step 4 of 6</span>
-      <h1 class="heading-3">Three safety questions.</h1>
-      <p class="body-3 muted">Please answer honestly. A yes doesn't mean anything is wrong with you. It means this isn't the right tool today, and we'll point you to better support.</p>
-      <div class="yn clay" id="q-harm"><span class="title-3">Have you had thoughts of harming yourself recently?</span><div class="seg" role="radiogroup" aria-label="Thoughts of harming yourself"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
-      <div class="yn clay" id="q-heart"><span class="title-3">Do you have a heart condition, or has a doctor told you to avoid stress?</span><div class="seg" role="radiogroup" aria-label="Heart condition"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
-      <div class="yn clay" id="q-crisis"><span class="title-3">Are you in crisis, or feeling unsafe, right now?</span><div class="seg" role="radiogroup" aria-label="In crisis right now"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
-      <p class="error" id="e-safety" role="alert" hidden></p>
-      <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-    </form>
-
-    <form class="wiz-step" id="w-consent" novalidate hidden>
-      <span class="caption-3 eyebrow">Anxiety check-in · Step 5 of 6</span>
-      <h1 class="heading-3">Before we continue.</h1>
-      <div class="consent clay">
-        <ul class="consent-list">
-          <li><i class="icon i24" style="--i:url(/icons/cpu.svg)"></i><div><strong class="title-3">This is an AI research prototype.</strong><p class="body-6 muted">The guides are AI generated characters, not clinicians. It isn't therapy, diagnosis or medical advice, and nobody has shown yet that it helps.</p></div></li>
-          <li><i class="icon i24" style="--i:url(/icons/waveform.svg)"></i><div><strong class="title-3">What you share goes to Groq.</strong><p class="body-6 muted">Your words and screening band help write your plan and summary. We keep no database and no accounts, and your track record stays in this browser. <a href="/privacy" target="_blank">Privacy note</a>.</p></div></li>
-          <li><i class="icon i24" style="--i:url(/icons/stop-circle.svg)"></i><div><strong class="title-3">It may feel uncomfortable, on purpose.</strong><p class="body-6 muted">You can stop at any moment, for any reason, with one tap.</p></div></li>
-        </ul>
-        <button class="agree" id="agree" type="button" role="switch" aria-checked="false">
-          <span class="agree-track"><span class="agree-knob"></span></span>
-          <span class="agree-text"><strong class="title-2">I understand and agree</strong><span class="caption-5">Required to continue</span></span>
-        </button>
-      </div>
-      <button class="btn btn-cta btn-lg wiz-next" id="consent-next" type="submit" disabled>Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-    </form>
-
-    <form class="wiz-step" id="w-connect" novalidate hidden>
-      <span class="caption-3 eyebrow">Anxiety check-in · Step 6 of 6</span>
-      <h1 class="heading-3">Where should readings come from?</h1>
-      <p class="body-3 muted">The agent uses a live reading and verdict to decide what to do next.</p>
-      <button class="source source-off clay" id="connect-app" type="button" aria-haspopup="dialog">
-        <span class="source-icon"><i class="icon i24" style="--i:url(/icons/heartbeat.svg)"></i></span>
-        <span class="source-text"><strong class="title-3">Toward wearable and app</strong><span class="body-6 muted">ECG, PPG, skin conductance and motion from our prototype, read by our multimodal anxiety model.</span></span>
-        <span class="soon caption-3">Integrating soon</span>
+  <!-- 1. What this is, and consent -->
+  <form class="check-step" id="s-intro" novalidate>
+    <span class="caption-3 eyebrow">Anxiety check · about two minutes</span>
+    <h1 class="heading-3">Three things, kept separate, then one clear result.</h1>
+    <div class="parts">
+      <div class="part clay"><i class="icon i24" style="--i:url(/icons/clipboard-check.svg)"></i><strong class="title-3">What you report</strong><span class="body-6 muted">GAD-7, a screening questionnaire used widely in clinics.</span></div>
+      <div class="part clay"><i class="icon i24" style="--i:url(/icons/heartbeat.svg)"></i><strong class="title-3">What your body shows</strong><span class="body-6 muted">Heart, skin and movement signals from our wearable. Optional.</span></div>
+      <div class="part clay"><i class="icon i24" style="--i:url(/icons/brain.svg)"></i><strong class="title-3">What the model says</strong><span class="body-6 muted">Our anxiety model's reading of those signals, once it's connected.</span></div>
+    </div>
+    <div class="consent clay">
+      <ul class="consent-list">
+        <li><i class="icon i24" style="--i:url(/icons/shield-check.svg)"></i><div><strong class="title-3">It screens. It doesn't diagnose.</strong><p class="body-6 muted">This is a student research prototype. It can't tell you whether you have an anxiety disorder, and nobody has shown yet that it helps.</p></div></li>
+        <li><i class="icon i24" style="--i:url(/icons/lock-key.svg)"></i><div><strong class="title-3">Your answers stay on this device.</strong><p class="body-6 muted">Our server scores them with fixed code and keeps nothing. No language model sees your individual answers or your safety answers. <a href="/privacy" target="_blank">Privacy note</a>.</p></div></li>
+        <li><i class="icon i24" style="--i:url(/icons/lifebuoy.svg)"></i><div><strong class="title-3">Safety questions come first.</strong><p class="body-6 muted">If this isn't the right tool for you today, we'll say so and point you to better support.</p></div></li>
+      </ul>
+      <button class="agree" id="agree" type="button" role="switch" aria-checked="false">
+        <span class="agree-track"><span class="agree-knob"></span></span>
+        <span class="agree-text"><strong class="title-2">I understand and agree</strong><span class="caption-5">Required to continue</span></span>
       </button>
-      <div class="source source-on clay">
-        <span class="source-icon"><i class="icon i24" style="--i:url(/icons/waveform.svg)"></i></span>
-        <div><strong class="title-3">Demo stream</strong><p class="body-6 muted">A synthetic recording and a simulated verdict, so you can see how the agent responds. Not your real data.</p></div>
-        <span class="selected caption-3"><i class="icon" style="--i:url(/icons/check-circle.svg)"></i>Selected</span>
-      </div>
-      <p class="error" id="e-connect" role="alert" hidden></p>
-      <button class="btn btn-cta btn-lg wiz-next" id="build-btn" type="submit">Build my care plan<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-    </form>
-
-    <section class="wiz-step wiz-loading" id="w-loading" hidden aria-live="polite">
-      <div class="skeleton-title"></div>
-      <div class="skeleton-row"><span></span><span></span><span></span></div>
-      <p class="title-3 muted">The care planner is reading your answers.</p>
-    </section>
-
-    <section class="wiz-step wiz-plan" id="w-plan" hidden>
-      <span class="caption-3 eyebrow">Your care plan <span class="muted" id="plan-meta"></span></span>
-      <h1 class="heading-3" id="plan-path"></h1>
-      <p class="title-2 muted" id="plan-why"></p>
-      <p class="body-5 pred-banner" id="plan-record" hidden></p>
-      <div class="plan-basis">
-        <div class="basis clay"><span class="caption-4 muted">GAD-7</span><strong class="heading-5 mono" id="plan-gad"></strong></div>
-        <div class="basis clay"><span class="caption-4 muted">Situation</span><strong class="title-3" id="plan-event"></strong></div>
-        <div class="basis clay"><span class="caption-4 muted">Live reading</span><strong class="title-3">Demo stream</strong></div>
-      </div>
-      <div class="transform">
-        <div class="tf-card clay"><span class="caption-3 muted">Your anxiety says</span><p class="title-3" id="plan-said"></p></div>
-        <i class="icon i24 tf-arrow" style="--i:url(/icons/arrow-right.svg)"></i>
-        <div class="tf-card tf-b clay"><span class="caption-3">What we'll test</span><p class="title-3" id="plan-test"></p></div>
-      </div>
-      <h2 class="heading-6">Your steps</h2>
-      <ol class="ladder" id="ladder"></ol>
-      <p class="body-6 muted">Today is a guided session for step one. AI guides role play the situation while the agent watches your readings.</p>
-      <div class="plan-actions"><button class="btn btn-cta btn-lg" id="enter-btn" type="button">Start guided session<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button></div>
-    </section>
-  </div>
-
-  <!-- GUIDED SESSION -->
-  <div class="stage" id="stage" hidden>
-    <div id="room-panel" role="group" aria-label="Three AI guides"></div>
-    <header class="hud">
-      <button class="hud-btn" id="leave-btn" type="button" aria-label="Leave the session"><i class="icon i20" style="--i:url(/icons/arrow-left.svg)"></i><span class="hud-label">Leave</span></button>
-      <div class="hud-info">
-        <span class="caption-3 mono" id="q-count">Step 1 of 6</span>
-        <span class="hud-verdict caption-3" id="hud-verdict" data-v="unavailable"><i></i><span id="hud-verdict-text">Reading starts soon</span></span>
-      </div>
-      <div class="hud-right">
-        <button class="hud-btn" id="sound-btn" type="button" aria-pressed="true" aria-label="Sound"><i class="icon i20" id="sound-icon" style="--i:url(/icons/speaker-high.svg)"></i></button>
-        <button class="hud-btn hud-agent" id="agent-btn" type="button" aria-expanded="false" aria-controls="drawer"><i class="icon i20" style="--i:url(/icons/cpu.svg)"></i><span class="hud-label">Inside the agent</span></button>
-        <button class="hud-btn hud-stop" id="stop-btn" type="button"><i class="icon i20" style="--i:url(/icons/stop-circle.svg)"></i><span>Stop</span></button>
-      </div>
-    </header>
-
-    <div class="center-card clay" id="calibrate">
-      <span class="caption-3 eyebrow">Setting your baseline</span>
-      <h2 class="heading-5">Read this out loud, in your normal voice.</h2>
-      <blockquote class="read-text title-3" id="read-text"></blockquote>
-      <p class="body-6 muted">Talking raises your heart rate on its own. This baseline stops talking being mistaken for anxiety.</p>
-      <div class="progress" id="cal-progress" hidden><span id="cal-fill"></span></div>
-      <button class="btn btn-cta btn-lg" id="cal-btn" type="button">I'm ready to read</button>
     </div>
+    <button class="btn btn-cta btn-lg wiz-next" id="intro-next" type="submit" disabled>Begin<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+  </form>
 
-    <div class="dock" id="dock" hidden>
-      <div class="caption clay" id="caption">
-        <span class="caption-3 who" id="who"></span>
-        <p class="title-1" id="line" aria-live="polite"></p>
-      </div>
-      <div class="answer clay" id="answer-box">
-        <div class="meter" id="meter">
-          <div class="meter-ring" id="ring"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" class="ring-bg"/><circle cx="32" cy="32" r="28" class="ring-fg" id="ring-fg"/></svg><span class="mono caption-3" id="ring-text">0.0</span></div>
-          <div class="meter-text"><span class="title-4" id="meter-title">Take your time</span><span class="caption-5 muted" id="meter-sub"></span></div>
-          <canvas id="wave" width="240" height="48" aria-hidden="true"></canvas>
-        </div>
-        <form id="answer-form" class="answer-form">
-          <label class="visually-hidden" for="answer">Your response</label>
-          <textarea id="answer" rows="1" maxlength="1500" placeholder="Type your response"></textarea>
-          <div class="answer-actions">
-            <button class="btn btn-accent" id="mic-btn" type="button"><i class="icon i20" id="mic-icon" style="--i:url(/icons/microphone.svg)"></i><span id="mic-label">Use my voice</span></button>
-            <button class="btn btn-white" id="sample-btn" type="button">Sample (demo)</button>
-            <button class="btn btn-cta" id="send-btn" type="submit">Respond<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-          </div>
-        </form>
-        <p class="error" id="e-answer" role="alert" hidden></p>
-      </div>
+  <!-- 2. Safety -->
+  <form class="check-step" id="s-safety" novalidate hidden>
+    <span class="caption-3 eyebrow">Step 1 of 4 · Safety</span>
+    <h1 class="heading-3">Three safety questions first.</h1>
+    <p class="body-3 muted">Please answer honestly. A yes doesn't mean anything is wrong with you. It means a person can help more than this tool can today.</p>
+    <div class="yn clay" id="q-harm"><span class="title-3">Have you had thoughts of harming yourself recently?</span><div class="seg" role="radiogroup" aria-label="Thoughts of harming yourself"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
+    <div class="yn clay" id="q-crisis"><span class="title-3">Are you in crisis, or feeling unsafe, right now?</span><div class="seg" role="radiogroup" aria-label="In crisis right now"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
+    <div class="yn clay" id="q-heart"><span class="title-3">Do you have a heart condition, or has a doctor told you to avoid stress?</span><div class="seg" role="radiogroup" aria-label="Heart condition"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
+    <p class="error" id="e-safety" role="alert" hidden></p>
+    <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+  </form>
+
+  <!-- 3. GAD-7 -->
+  <form class="check-step" id="s-gad" novalidate hidden>
+    <span class="caption-3 eyebrow">Step 2 of 4 · What you report</span>
+    <h1 class="heading-3">Over the last two weeks, how often have you been bothered by these?</h1>
+    <p class="body-3 muted">This is the GAD-7, a screening questionnaire. There are no right answers. Go with your first instinct.</p>
+    <ol class="gad" id="gad"></ol>
+    <p class="error" id="e-gad" role="alert" hidden></p>
+    <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+  </form>
+
+  <!-- 4. Impact -->
+  <form class="check-step" id="s-impact" novalidate hidden>
+    <span class="caption-3 eyebrow">Step 3 of 4 · Daily life</span>
+    <h1 class="heading-3">How difficult have these made your daily life?</h1>
+    <p class="body-3 muted">Your work or studies, looking after things at home, or getting along with other people. A low score with a big effect on daily life still matters, so we ask.</p>
+    <div class="seg" id="impact" role="radiogroup" aria-label="How difficult daily life has been"></div>
+    <p class="error" id="e-impact" role="alert" hidden></p>
+    <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+  </form>
+
+  <!-- 5. Body reading -->
+  <form class="check-step" id="s-body" novalidate hidden>
+    <span class="caption-3 eyebrow">Step 4 of 4 · What your body shows</span>
+    <h1 class="heading-3">Add a body reading?</h1>
+    <p class="body-3 muted">Sit still for the reading. It's compared with your own baseline, never with other people.</p>
+    <div class="source-list" role="radiogroup" aria-label="Where the reading comes from">
+      <button class="source-opt" id="src-device" type="button" role="radio" aria-checked="false" data-off="true">
+        <span class="card-icon"><i class="icon i20" style="--i:url(/icons/watch.svg)"></i></span>
+        <span class="source-text"><strong class="title-3">Toward wearable</strong><span class="body-6 muted">ECG, pulse, skin conductance and movement from our prototype, read by our anxiety model.</span></span>
+        <span class="tag tag-ink caption-3" id="src-device-tag">Integrating soon</span>
+      </button>
+      <button class="source-opt" id="src-demo" type="button" role="radio" aria-checked="false">
+        <span class="card-icon"><i class="icon i20" style="--i:url(/icons/waveform.svg)"></i></span>
+        <span class="source-text"><strong class="title-3">Demo reading</strong><span class="body-6 muted">A synthetic signal, so you can see how a reading works. It isn't your data, and it's labelled in your result.</span></span>
+        <span class="tag tag-sand caption-3">Synthetic</span>
+      </button>
+      <button class="source-opt" id="src-none" type="button" role="radio" aria-checked="true">
+        <span class="card-icon"><i class="icon i20" style="--i:url(/icons/clipboard-check.svg)"></i></span>
+        <span class="source-text"><strong class="title-3">No reading today</strong><span class="body-6 muted">Your result will rest on your answers alone.</span></span>
+        <span></span>
+      </button>
     </div>
+    <div class="reading clay" id="reading" hidden>
+      <div class="live-head">
+        <span class="row"><i class="live-dot" id="read-dot"></i><strong class="title-3" id="read-title">Demo reading</strong></span>
+        <span class="state-pill" id="read-state" data-state="CALIBRATING"><i></i><span id="read-state-text">Waiting</span></span>
+      </div>
+      <div class="chart-box reading-chart" id="read-chart"></div>
+      <div class="progress-line"><i id="read-progress"></i></div>
+      <div id="read-mask"></div>
+      <div class="reading-meta">
+        <div class="read-stat"><span class="caption-4 muted">Heart rate</span><strong id="rs-hr">–</strong></div>
+        <div class="read-stat"><span class="caption-4 muted">From baseline</span><strong id="rs-delta">–</strong></div>
+        <div class="read-stat"><span class="caption-4 muted">Skin conductance</span><strong id="rs-eda">–</strong></div>
+        <div class="read-stat"><span class="caption-4 muted">Signal quality</span><strong id="rs-q">–</strong></div>
+      </div>
+      <div class="stack-sm">
+        <span class="caption-4 muted">Demo scenario. Pick one to see how the reading and the result change.</span>
+        <div class="chips chips-sm" id="scenarios" role="radiogroup" aria-label="Demo scenario"></div>
+      </div>
+      <p class="caption-5 muted" id="read-note">45 seconds of signal in 10 second windows, shown faster than real time. Fixed code reads it. No language model sees a raw reading.</p>
+    </div>
+    <p class="error" id="e-body" role="alert" hidden></p>
+    <button class="btn btn-cta btn-lg wiz-next" id="body-next" type="submit"><span>See my result</span><i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
+  </form>
 
-    <aside class="drawer" id="drawer" aria-label="Inside the agent" hidden>
-      <div class="drawer-head">
-        <div class="tabs" role="tablist">
-          <button role="tab" aria-selected="true" data-tab="live" type="button">Live</button>
-          <button role="tab" aria-selected="false" data-tab="evidence" type="button">Measured</button>
-          <button role="tab" aria-selected="false" data-tab="log" type="button">Reasoning</button>
+  <!-- Result -->
+  <section class="check-step" id="s-result" hidden>
+    <div class="row no-print" style="justify-content: space-between">
+      <a class="btn btn-white btn-sm" href="/home"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Home</a>
+      <button class="btn btn-white btn-sm" id="print" type="button">Save or share as PDF</button>
+    </div>
+    <div class="page-head">
+      <span class="caption-3 eyebrow">Your anxiety check · <span id="r-date"></span></span>
+      <h1 class="heading-3" id="r-title"></h1>
+      <p class="title-2 muted" id="r-sub"></p>
+    </div>
+    <div class="support-card" id="r-support" hidden>
+      <span class="exit-icon"><i class="icon i24" style="--i:url(/icons/lifebuoy.svg)"></i></span>
+      <h2 class="heading-5" id="r-support-title"></h2>
+      <p class="title-2" id="r-support-text"></p>
+      <p class="caption-5">This wording comes from fixed safety rules, not from a language model.</p>
+    </div>
+    <div class="sources">
+      <article class="src clay">
+        <span class="src-label caption-3"><i class="icon i20" style="--i:url(/icons/clipboard-check.svg)"></i>What you reported</span>
+        <div id="r-gauge"></div>
+        <ul class="body-6" id="r-concerns"></ul>
+        <p class="body-5" id="r-impact"></p>
+      </article>
+      <article class="src clay">
+        <span class="src-label caption-3"><i class="icon i20" style="--i:url(/icons/heartbeat.svg)"></i>What your body showed</span>
+        <strong class="heading-5" id="r-body"></strong>
+        <p class="body-6 muted" id="r-body-text"></p>
+        <div class="reading-meta" id="r-body-stats" style="grid-template-columns: 1fr 1fr" hidden>
+          <div class="read-stat"><span class="caption-4 muted">From baseline</span><strong id="rb-delta"></strong></div>
+          <div class="read-stat"><span class="caption-4 muted">Signal quality</span><strong id="rb-q"></strong></div>
         </div>
-        <button class="hud-btn hud-close" id="drawer-close" type="button" aria-label="Close"><i class="icon i20" style="--i:url(/icons/x.svg)"></i></button>
-      </div>
-      <div class="tab" id="tab-live">
-        <div class="legend caption-4"><span><i class="dot dot-code"></i>Fixed code</span><span><i class="dot dot-model"></i>Anxiety model</span><span><i class="dot dot-llm"></i>Language model</span></div>
-        <ol class="pipeline" id="pipeline"></ol>
-        <div class="signal">
-          <div class="signal-head"><span class="title-4">Anxiety-like arousal</span><span class="state" id="state" data-state="CALIBRATING"><span class="state-dot"></span><span id="state-label">Baseline</span></span></div>
-          <div class="chart" id="chart"></div>
-          <p class="body-6" id="state-text">The first response starts the trace.</p>
-          <p class="caption-5 muted"><span id="data-label">Synthetic replay</span>. Heart rate change from baseline, in beats per minute.</p>
-        </div>
-        <div class="console">
-          <span class="title-4">Judge console</span>
-          <p class="caption-5 muted">Choose what the next synthetic reading looks like, then respond. Watch what the agent does.</p>
-          <div class="chips chips-sm" id="inject" role="radiogroup" aria-label="Next reading"></div>
-        </div>
-      </div>
-      <div class="tab" id="tab-evidence" hidden><p class="title-4" id="ev-pred"></p><ol class="ledger" id="ledger"></ol></div>
-      <div class="tab" id="tab-log" hidden><ol class="trail" id="trail"></ol></div>
-    </aside>
-  </div>
-
-  <!-- AFTER THE SESSION -->
-  <section class="sheet" id="debrief" hidden>
-    <form class="sheet-card post clay" id="debrief-form">
-      <span class="caption-3 eyebrow">After your session</span>
-      <h1 class="heading-4">A few questions about how that was.</h1>
-      <p class="body-3 muted" id="d-note"></p>
-      <div class="post-q">
-        <span class="title-3">At its strongest, how anxious did you feel? <output class="mono" id="o-peak">5 of 10</output></span>
-        <input id="f-peak" type="range" min="0" max="10" value="5" aria-label="Peak anxiety from 0 to 10">
-        <div class="scale caption-5 muted"><span>Not at all</span><span>The most I can imagine</span></div>
-      </div>
-      <div class="post-q">
-        <span class="title-3">Did you notice any of these?</span>
-        <div class="chips chips-toggle" id="symptoms" role="group" aria-label="Symptoms you noticed"></div>
-      </div>
-      <div class="post-q">
-        <span class="title-3" id="d-pred"></span>
-        <span class="caption-5 muted">Did that happen?</span>
-        <div class="seg" id="q-outcome" role="radiogroup" aria-label="Did the feared outcome happen"><button type="button" role="radio" aria-checked="false" data-v="yes">Yes</button><button type="button" role="radio" aria-checked="false" data-v="partly">Partly</button><button type="button" role="radio" aria-checked="false" data-v="no">No</button></div>
-      </div>
-      <div class="post-q">
-        <span class="title-3">How likely does that prediction feel now? <output class="mono" id="o-after">80%</output></span>
-        <input id="f-after" type="range" min="0" max="100" value="80" aria-label="How likely it feels now, in percent">
-        <span class="caption-5 muted">Before the session, you said <span class="mono" id="d-before"></span>.</span>
-      </div>
-      <label class="field"><span class="title-3">Anything you'd like to remember? <span class="caption-5 muted">Optional</span></span><textarea id="f-note" rows="2" maxlength="400" placeholder="What surprised you?"></textarea></label>
-      <p class="error" id="e-post" role="alert" hidden></p>
-      <button class="btn btn-cta btn-lg" id="finish-btn" type="submit">See my summary<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
-    </form>
+        <span class="tag tag-sand caption-3" id="r-body-tag" style="align-self: flex-start" hidden></span>
+      </article>
+      <article class="src clay src-b">
+        <span class="src-label caption-3"><i class="icon i20" style="--i:url(/icons/brain.svg)"></i>What the model says</span>
+        <strong class="heading-5" id="r-model"></strong>
+        <p class="body-6" id="r-model-text"></p>
+        <div id="r-mask"></div>
+        <span class="tag tag-ink caption-3" id="r-model-tag" style="align-self: flex-start"></span>
+      </article>
+    </div>
+    <div class="agree-card clay" id="r-agree"><span class="card-icon"><i class="icon i20" style="--i:url(/icons/info.svg)"></i></span><div class="stack-xs"><strong class="title-3" id="r-agree-title"></strong><p class="body-3" id="r-agree-text"></p></div></div>
+    <div id="r-notes" class="stack-sm"></div>
+    <div class="grid-2">
+      <article class="card clay">
+        <span class="caption-3 muted">What this suggests</span>
+        <h2 class="heading-5" id="r-path"></h2>
+        <p class="body-3 muted" id="r-why"></p>
+        <ol class="path-steps body-5" id="r-steps"></ol>
+        <p class="caption-5 muted" id="r-trend"></p>
+      </article>
+      <article class="card clay">
+        <span class="caption-3 muted">Your answers</span>
+        <ul class="gad-answers" id="r-items"></ul>
+        <p class="caption-5 muted">GAD-7: Spitzer, Kroenke, Williams and Löwe, 2006. A screening result, not a diagnosis.</p>
+      </article>
+    </div>
+    <section class="agent-panel" id="agent" aria-label="The agent's next step">
+      <div class="agent-main"></div>
+      <div class="agent-trace"></div>
+    </section>
+    <div class="row no-print">
+      <a class="btn btn-cta" id="r-practice" href="/practice">Go to practice<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></a>
+      <a class="btn btn-white" href="/home">Back to Home</a>
+      <a class="btn btn-plain" href="/record#checks">See all my checks</a>
+    </div>
+    <p class="body-6"><strong style="font-weight: 600">If you're struggling, please reach out.</strong> Speak to a counsellor or doctor. If you may be in danger, call your local emergency number. In India, Tele-MANAS is 14416. In the UK and Ireland, Samaritans are 116 123.</p>
   </section>
 
-  <!-- HEALTH SUMMARY -->
-  <section class="summary" id="report" hidden>
-    <header class="summary-top no-print">
-      <a class="btn btn-white btn-sm" href="/"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Home</a>
-      <div class="summary-actions">
-        <a class="btn btn-white btn-sm" href="/record">Track record</a>
-        <button class="btn btn-white btn-sm" id="print-btn" type="button">Save or share as PDF</button>
-        <button class="btn btn-cta btn-sm" id="again-btn" type="button">New check-in</button>
-      </div>
-    </header>
-
-    <div class="sum-hero">
-      <div class="sum-hero-head">
-        <span class="caption-3">Your anxiety summary · <span id="r-date"></span></span>
-        <span class="sum-tag caption-3" id="r-source"></span>
-      </div>
-      <h1 class="heading-2" id="r-path"></h1>
-      <p class="title-1" id="r-why"></p>
-    </div>
-
-    <div class="sum-metrics">
-      <article class="metric clay">
-        <span class="caption-4 muted">GAD-7 screening</span>
-        <strong class="heading-2 mono" id="m-gad"></strong>
-        <div class="band-bar" aria-hidden="true"><span></span><span></span><span></span><span></span><i id="m-marker"></i></div>
-        <span class="body-5" id="m-band"></span>
-      </article>
-      <article class="metric clay">
-        <span class="caption-4 muted">Highest anxiety-like reading</span>
-        <strong class="heading-2 cap" id="m-verdict"></strong>
-        <div class="verdict-row" id="m-verdicts" aria-hidden="true"></div>
-        <span class="body-5" id="m-verdict-source"></span>
-      </article>
-      <article class="metric clay">
-        <span class="caption-4 muted">How anxious you felt, at most</span>
-        <strong class="heading-2 mono" id="m-peak"></strong>
-        <div class="scale-bar" aria-hidden="true"><i id="m-peak-bar"></i></div>
-        <span class="body-5">By your own rating</span>
-      </article>
-    </div>
-
-    <article class="prediction clay">
-      <span class="caption-4 muted">What your anxiety predicted</span>
-      <h2 class="heading-4" id="r-pred"></h2>
-      <div class="belief">
-        <div><span class="caption-4 muted">Before</span><strong class="heading-2 mono" id="r-before"></strong></div>
-        <i class="icon i24" style="--i:url(/icons/arrow-right.svg)"></i>
-        <div><span class="caption-4 muted">After</span><strong class="heading-2 mono" id="r-after"></strong></div>
-        <div class="belief-out"><span class="caption-4 muted">Did it happen?</span><strong class="heading-5" id="r-outcome"></strong></div>
-      </div>
-    </article>
-
-    <article class="insight clay">
-      <i class="icon i24" style="--i:url(/icons/brain.svg)"></i>
-      <div>
-        <span class="caption-4 muted">What the agent noticed</span>
-        <p class="heading-6" id="r-summary"></p>
-        <p class="title-3 muted" id="r-insight"></p>
-      </div>
-    </article>
-
-    <div class="sum-grid">
-      <article class="panel-card clay">
-        <h2 class="title-2">Anxiety-like arousal during the session</h2>
-        <div class="chart chart-lg" id="r-chart"></div>
-        <p class="caption-5 muted" id="r-chart-note"></p>
-      </article>
-      <article class="panel-card clay">
-        <h2 class="title-2">Your GAD-7 answers</h2>
-        <ul class="gad-answers" id="r-gad"></ul>
-      </article>
-    </div>
-
-    <div class="sum-grid">
-      <article class="panel-card clay">
-        <h2 class="title-2">What you told us afterwards</h2>
-        <h3 class="caption-4 muted">Noticed in your body</h3>
-        <div class="chips-static" id="r-symptoms"></div>
-        <h3 class="caption-4 muted" id="r-note-label">Your note</h3>
-        <p class="body-3" id="r-note"></p>
-        <h3 class="caption-4 muted">Measured during the session</h3>
-        <p class="body-6" id="r-measured"></p>
-      </article>
-      <article class="panel-card next-card clay">
-        <h2 class="title-2">Your next steps</h2>
-        <ol class="next-steps body-5" id="r-steps"></ol>
-        <div class="replan"><span class="caption-3 muted">The agent's updated next session</span><p class="title-3" id="r-practice"></p><button class="btn btn-white btn-sm no-print" id="ics-btn" type="button">Add a check-in to my calendar</button><a class="body-5 no-print" id="r-saved" href="/record" hidden></a></div>
-        <div class="mission"><span class="caption-3">This week's real world test</span><p class="title-3" id="r-mission"></p></div>
-      </article>
-    </div>
-
-    <details class="panel-card clay no-print"><summary class="title-3">Why the agent did what it did</summary><ol class="trail" id="r-trail"></ol></details>
-
-    <footer class="sum-foot">
-      <p class="body-6"><strong>If you're struggling, please reach out.</strong> Speak to a counsellor or doctor. If you may be in danger, call your local emergency number. In India, Tele-MANAS is 14416. In the UK and Ireland, Samaritans are 116 123.</p>
-      <p class="caption-5 muted" id="r-note-demo"></p>
-    </footer>
-  </section>
-
-  <section class="sheet" id="exit" hidden>
-    <div class="sheet-card clay">
+  <!-- Safety exit -->
+  <section class="check-step" id="s-exit" hidden>
+    <div class="support-card">
       <span class="exit-icon"><i class="icon i24" style="--i:url(/icons/lifebuoy.svg)"></i></span>
       <h1 class="heading-4" id="exit-title"></h1>
       <p class="title-2" id="exit-text"></p>
-      <p class="caption-5 muted">This response comes from fixed safety rules, not from a language model.</p>
-      <a class="btn btn-white" href="/"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Back to home</a>
+      <p class="caption-5">This response comes from fixed safety rules, not from a language model. Nothing you answered was stored.</p>
+      <a class="btn btn-white" href="/home" style="align-self: flex-start"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Back to Home</a>
     </div>
   </section>
-</div>
-
-<dialog class="dlg clay" id="pause-dlg" aria-labelledby="pause-title">
-  <span class="exit-icon"><i class="icon i24" style="--i:url(/icons/shield-check.svg)"></i></span>
-  <h2 class="heading-5" id="pause-title">Let's pause</h2>
-  <p class="body-3" id="pause-text"></p>
-  <div class="breath" id="breath" hidden aria-live="polite"><div class="breath-ball"></div><span class="title-3" id="breath-text">Breathe in</span></div>
-  <p class="caption-5 muted">The Safety Governor stepped in. A second limit would end the session.</p>
-  <div class="dlg-actions">
-    <button class="btn btn-white" id="breath-btn" type="button">Breathe for 30 seconds</button>
-    <button class="btn btn-white" id="resume-stop" type="button">Stop here</button>
-    <button class="btn btn-cta" id="resume-go" type="button">Continue</button>
-  </div>
-</dialog>
-
-<dialog class="dlg clay" id="leave-dlg" aria-labelledby="leave-title">
-  <h2 class="heading-5" id="leave-title">Leave this session?</h2>
-  <p class="body-3">This ends the session. You'll still get your summary, or you can go back to the start.</p>
-  <div class="dlg-actions">
-    <button class="btn btn-white" id="leave-stay" type="button">Stay</button>
-    <button class="btn btn-cta" id="leave-go" type="button">End session</button>
-  </div>
-</dialog>
-
-<script type="module" src="/js/room.js"></script>
+</main>
+<script type="module" src="/js/check.js"></script>
 </body>
 </html>

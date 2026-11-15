@@ -2,6 +2,13 @@ import { Panel } from "/js/panel.js";
 import { Voices } from "/js/voice.js";
 import { openConnect } from "/js/connect.js";
 import * as ledger from "/js/ledger.js";
+import * as store from "/js/store.js";
+import { mountShell } from "/js/shell.js";
+
+// A guided session rests on a check from the last 24 hours, because the safety questions come first.
+const check = store.sessionCheck();
+if (!check) location.replace(`/practice?need=check${location.search ? `&${location.search.slice(1)}` : ""}`);
+mountShell("practice");
 
 const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -14,16 +21,6 @@ const el = (tag, className, text) => {
   return node;
 };
 
-const GAD_ITEMS = [
-  "Feeling nervous, anxious or on edge",
-  "Not being able to stop or control worrying",
-  "Worrying too much about different things",
-  "Trouble relaxing",
-  "Being so restless that it's hard to sit still",
-  "Becoming easily annoyed or irritable",
-  "Feeling afraid, as if something awful might happen",
-];
-const GAD_OPTIONS = ["Not at all", "Several days", "More than half the days", "Nearly every day"];
 const SYMPTOMS = ["Racing heart", "Sweating", "Shaky", "Short of breath", "Tense muscles", "Butterflies", "Dry mouth", "Mind going blank", "None of these"];
 const STATE_TEXT = {
   CALIBRATING: ["Baseline", "The first response starts the trace."],
@@ -46,10 +43,10 @@ const SAMPLE_ANSWERS = [
   "I suppose I would just carry on, even if it isn't perfect.",
   "Maybe it would mean this isn't as dangerous as it feels.",
 ];
-const SAMPLE_PROFILE = { event: "Speaking up in class or meetings", days: 7, pred: "If I speak up, people will think I don't know what I'm talking about.", belief: 80, gad: [2, 1, 2, 1, 0, 1, 2] };
+const SAMPLE_PROFILE = { event: "Going somewhere crowded", days: 7, pred: "If I stay in the crowd, my anxiety will get so bad that I'll have to leave.", belief: 80 };
 
 /* ---------- State ---------- */
-const form = { gad: Array(7).fill(null), self_harm: null, heart_condition: null, crisis: null, consent: false, outcome: null, symptoms: new Set() };
+const form = { outcome: null, symptoms: new Set() };
 const voices = new Voices();
 let session = null;
 let token = null;
@@ -88,13 +85,11 @@ function showError(id, message) {
   $(id).textContent = message || "";
   $(id).hidden = !message;
 }
-const bandOf = (score) => (score >= 15 ? "Severe" : score >= 10 ? "Moderate" : score >= 5 ? "Mild" : "Minimal");
-const gadScore = () => form.gad.reduce((a, b) => a + (b || 0), 0);
 
 /* ---------- Wizard, with a real back button on every step ---------- */
-const STEPS = ["w-event", "w-fear", "w-gad", "w-result", "w-safety", "w-consent", "w-connect", "w-plan"];
-const BACK_LABEL = { "w-event": "Home", "w-fear": "Situation", "w-gad": "Prediction", "w-result": "Questionnaire", "w-safety": "Result", "w-consent": "Safety", "w-connect": "Consent", "w-plan": "Edit answers" };
-const PROGRESS = { "w-event": 1, "w-fear": 2, "w-gad": 3, "w-result": 3, "w-safety": 4, "w-consent": 5, "w-connect": 6 };
+const STEPS = ["w-event", "w-fear", "w-connect", "w-plan"];
+const BACK_LABEL = { "w-event": "Practice", "w-fear": "Situation", "w-connect": "Prediction", "w-plan": "Edit answers" };
+const PROGRESS = { "w-event": 1, "w-fear": 2, "w-connect": 3 };
 let current = "w-event";
 
 function showStep(id, push = true) {
@@ -106,7 +101,7 @@ function showStep(id, push = true) {
   const bar = $("wiz-bar");
   const progress = PROGRESS[id];
   bar.hidden = !progress;
-  bar.setAttribute("aria-valuenow", progress || 6);
+  bar.setAttribute("aria-valuenow", progress || 3);
   [...bar.children].forEach((pip, i) => pip.classList.toggle("on", i < (progress || 0)));
   $("wizard").classList.toggle("wide", id === "w-plan");
   if (push) history.pushState({ step: id }, "");
@@ -116,8 +111,8 @@ function showStep(id, push = true) {
 }
 function goBack() {
   const index = STEPS.indexOf(current);
-  if (index <= 0) location.href = "/";
-  else if (current === "w-plan") { setConsent(false); showStep("w-event"); }
+  if (index <= 0) location.href = "/practice";
+  else if (current === "w-plan") showStep("w-event");
   else showStep(STEPS[index - 1]);
 }
 $("wiz-back").addEventListener("click", goBack);
@@ -129,7 +124,7 @@ addEventListener("popstate", (e) => {
   }
   // After a session, back mustn't land on a blank state.
   if (!$("debrief").hidden) { history.pushState({ stage: true }, ""); return; }
-  if (!$("report").hidden || !$("exit").hidden) { location.href = "/"; return; }
+  if (!$("report").hidden || !$("exit").hidden) { location.href = "/home"; return; }
   if (e.state?.step && !$("wizard").hidden && e.state.step !== "w-loading") showStep(e.state.step, false);
 });
 history.replaceState({ step: "w-event" }, "");
@@ -159,93 +154,10 @@ $("w-fear").addEventListener("submit", (e) => {
   e.preventDefault();
   if ($("f-pred").value.trim().length < 5) return showError("e-fear", "Write what your anxiety says will happen, or pick one above.");
   showError("e-fear");
-  showStep("w-gad");
-});
-
-/* GAD-7 */
-GAD_ITEMS.forEach((item, i) => {
-  const li = el("li");
-  const seg = el("div", "seg");
-  seg.setAttribute("role", "radiogroup");
-  seg.setAttribute("aria-label", item);
-  GAD_OPTIONS.forEach((option, value) => {
-    const b = el("button", "", option);
-    b.type = "button";
-    b.setAttribute("role", "radio");
-    b.setAttribute("aria-checked", "false");
-    b.addEventListener("click", () => {
-      form.gad[i] = value;
-      seg.querySelectorAll("button").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
-    });
-    seg.append(b);
-  });
-  li.append(el("span", "title-3", item), seg);
-  $("gad").append(li);
-});
-function marker(node, score) { node.style.left = `${Math.min(100, (score / 21) * 100)}%`; }
-function renderResult() {
-  const score = gadScore();
-  $("res-score").textContent = score;
-  $("res-band").textContent = `${bandOf(score)} anxiety symptoms`;
-  $("result-next").firstChild.textContent = score >= 15 ? "See support options" : "Continue";
-  marker($("res-marker"), score);
-  const ranked = form.gad.map((v, i) => [v, i]).filter(([v]) => v >= 1).sort((a, b) => b[0] - a[0]).slice(0, 3);
-  $("res-concerns").replaceChildren(...(ranked.length
-    ? ranked.map(([v, i]) => { const li = el("li"); li.append(el("strong", "", GAD_ITEMS[i]), el("span", "muted", ` · ${GAD_OPTIONS[v]}`)); return li; })
-    : [el("li", "", "You didn't report being bothered by any of these.")]));
-}
-$("w-gad").addEventListener("submit", (e) => {
-  e.preventDefault();
-  if (form.gad.includes(null)) return showError("e-gad", "Please answer all seven, so we can check this suits you today.");
-  showError("e-gad");
-  renderResult();
-  showStep("w-result");
-});
-async function screen() {
-  const result = await api("screen", { gad_items: form.gad, self_harm: !!form.self_harm, heart_condition: !!form.heart_condition, crisis: !!form.crisis });
-  if (result.status === "allow") return true;
-  session = { status: result.status, exit_message: result.exit_message };
-  routeExit();
-  return false;
-}
-$("result-next").addEventListener("click", async () => {
-  if (gadScore() >= 15) { await screen(); return; }
-  showStep("w-safety");
-});
-
-/* Safety */
-const yes = { "q-harm": "self_harm", "q-heart": "heart_condition", "q-crisis": "crisis" };
-function setYn(id, value) {
-  form[yes[id]] = value;
-  $(id).querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.v === String(value))));
-}
-Object.keys(yes).forEach((id) => {
-  $(id).querySelectorAll("button").forEach((b) => b.addEventListener("click", () => setYn(id, b.dataset.v === "true")));
-});
-$("w-safety").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (Object.values(yes).some((k) => form[k] === null)) return showError("e-safety", "Please answer all three questions.");
-  showError("e-safety");
-  try {
-    if (await screen()) showStep("w-consent");
-  } catch (err) {
-    showError("e-safety", err.message);
-  }
-});
-
-/* Consent is its own moment */
-function setConsent(on) {
-  form.consent = on;
-  $("agree").setAttribute("aria-checked", String(on));
-  $("consent-next").disabled = !on;
-}
-$("agree").addEventListener("click", () => setConsent(!form.consent));
-$("w-consent").addEventListener("submit", (e) => {
-  e.preventDefault();
-  if (!form.consent) return;
   showStep("w-connect");
 });
 
+function marker(node, score) { node.style.left = `${Math.min(100, (score / 21) * 100)}%`; }
 $("wiz-sample").addEventListener("click", () => {
   usedSample = true;
   const p = SAMPLE_PROFILE;
@@ -255,13 +167,7 @@ $("wiz-sample").addEventListener("click", () => {
   $("f-pred").value = p.pred;
   $("f-belief").value = p.belief;
   $("o-belief").textContent = `${p.belief}%`;
-  document.querySelectorAll("#gad .seg").forEach((seg, i) => seg.querySelectorAll("button")[p.gad[i]].click());
-  setYn("q-harm", false);
-  setYn("q-heart", false);
-  setYn("q-crisis", false);
-  renderResult();
-  // The sample path still shows the result and still requires consent.
-  showStep("w-result");
+  showStep("w-connect");
 });
 
 /* Build the plan */
@@ -276,11 +182,7 @@ $("w-connect").addEventListener("submit", async (e) => {
       days_until: Number($("f-days").value),
       prediction: $("f-pred").value.trim(),
       belief_before: Number($("f-belief").value),
-      gad_items: form.gad,
-      self_harm: form.self_harm,
-      heart_condition: form.heart_condition,
-      crisis: form.crisis,
-      consent: true,
+      check_token: check.token,
       history: ledger.forApi(),
     });
     accept(view);
@@ -301,6 +203,12 @@ function renderPlan(ms) {
   $("plan-record").textContent = session.record_note ? `From your track record: ${session.record_note}` : "";
   $("plan-gad").textContent = `${session.gad.score}/21 · ${session.gad.band}`;
   $("plan-event").textContent = session.event;
+  const b = session.basis || {};
+  const used = [`your GAD-7 range and strongest concerns`];
+  if (b.impact) used.push(`how daily life has been (${b.impact.toLowerCase()})`);
+  if (b.body) used.push(`the ${b.body_demo ? "demo " : ""}body reading at your check (${b.body.toLowerCase()})`);
+  if (session.record_note) used.push("your prediction record");
+  $("plan-basis-note").textContent = `This plan used ${used.join(", ")}.${b.gentle?.length ? ` It starts gently because ${b.gentle.join(" and ")}. That rule is fixed code, not the planner's choice.` : ""}`;
   $("plan-said").textContent = session.prediction;
   $("plan-test").textContent = plan.testable_version;
   $("ladder").replaceChildren(...plan.steps.map((step, i) => {
@@ -315,6 +223,7 @@ function renderPlan(ms) {
 /* ---------- Guided session ---------- */
 $("enter-btn").addEventListener("click", () => {
   voices.unlock();
+  document.body.classList.add("in-stage");
   $("wizard").hidden = true;
   $("stage").hidden = false;
   history.pushState({ stage: true }, "");
@@ -633,6 +542,7 @@ function leaveStage() {
   micStream = null;
   useVoice = false;
   $("stage").hidden = true;
+  document.body.classList.remove("in-stage");
 }
 function routeExit() {
   leaveStage();
@@ -685,7 +595,7 @@ function route() {
     $("d-pred").textContent = `Your anxiety said: "${session.prediction}"`;
     $("d-note").textContent = session.exit_message
       ? `${session.exit_message} These answers help make your summary useful.`
-      : "Your answers, your GAD-7 and the readings all go into your summary.";
+      : "Your answers, your check and the readings all go into your summary.";
     $("d-before").textContent = `${session.belief_before}%`;
     $("f-after").value = session.belief_before;
     $("o-after").textContent = `${session.belief_before}%`;
@@ -1021,6 +931,8 @@ function renderReport() {
   $("r-mission").textContent = r.mission;
   $("r-practice").textContent = r.next_practice;
   saveToRecord(r);
+  // The practice screen shows this as the week's real world step.
+  store.setPrefs({ mission: { text: r.mission, next: r.next_practice, prediction: r.prediction, at: Date.now() } });
   const measured = r.evidence.filter((e) => e.source !== "sample" && e.pause_s !== null);
   const fillers = r.evidence.reduce((n, e) => n + (e.fillers || 0), 0);
   const apologies = r.evidence.reduce((n, e) => n + (e.apologies || 0), 0);
@@ -1047,7 +959,7 @@ function saveToRecord(r) {
     $("r-saved").hidden = true;
   }
 }
-$("again-btn").addEventListener("click", () => location.assign("/checkin"));
+$("again-btn").addEventListener("click", () => location.assign("/practice"));
 $("print-btn").addEventListener("click", () => print());
 $("ics-btn").addEventListener("click", () => {
   // A real next action: the check-in lands in the person's own calendar. Nothing is stored by us.
@@ -1058,7 +970,7 @@ $("ics-btn").addEventListener("click", () => {
   const escape = (t) => t.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, " ");
   const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Toward//Anxiety check-in//EN", "BEGIN:VEVENT",
     `UID:${Date.now()}@toward`, `DTSTAMP:${stamp(new Date())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start.getTime() + 900000))}`,
-    "SUMMARY:Toward anxiety check-in", `DESCRIPTION:${escape(`${r.next_practice} Rate your prediction again: ${r.prediction}`)}`,
+    "SUMMARY:Toward: your next practice step", `DESCRIPTION:${escape(`${r.next_practice} Rate your prediction again: ${r.prediction}`)}`,
     "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
@@ -1070,6 +982,7 @@ $("ics-btn").addEventListener("click", () => {
 buildInject();
 buildPost();
 showStep("w-event", false);
+if (check) $("check-basis").textContent = `The plan will use your check from ${store.agoText(check.at)}: ${check.score} of 21 on GAD-7 (${check.band.toLowerCase()} range)${check.body ? `, and a ${check.body.source === "Demo stream" ? "demo " : ""}body reading that was ${check.body.title.toLowerCase()}` : ""}.`;
 
 /* Arriving from the track record to practise one prediction */
 const practising = new URLSearchParams(location.search).get("pred");
