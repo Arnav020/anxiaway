@@ -33,6 +33,22 @@ _FIELDS = (
 ).split()
 
 
+class _ScriptedTeam:
+    """The scripted agents, called the way the live team is called."""
+
+    def __init__(self, team: AgentTeam) -> None:
+        self.scripted = team.scripted
+
+    def take_notes(self) -> list[dict]:
+        return []
+
+    def direct(self, facts: dict):
+        return self.scripted.direct(facts), "Scripted"
+
+    def scene(self, facts: dict):
+        return self.scripted.scene(facts), "Scripted"
+
+
 def next_level(state: State, level: int) -> int:
     """Don't rescue by default: only LOW changes difficulty, and only upward."""
     return min(MAX_LEVEL, level + 1) if state is State.LOW else level
@@ -64,6 +80,7 @@ class Session:
         self.post: dict = {}
         self.pipeline: list[dict] = []
         self.readings: list[dict] = []
+        self.injected = False
 
     # Serialisation
     def to_state(self) -> dict:
@@ -87,6 +104,11 @@ class Session:
     def _step(self, node: str, kind: str, summary: str, ms: float, source: str | None = None) -> None:
         self.pipeline.append({"node": node, "kind": kind, "summary": summary, "ms": round(ms, 1), "source": source})
 
+    def _verifier_notes(self, team) -> None:
+        for note in team.take_notes():
+            self._step("verifier", "agent", note["summary"], note["ms"])
+            self._log("Verifier agent", note["summary"], round(note["ms"]) or None)
+
     def _exit(self, decision: governor.Decision, status: str) -> None:
         self.status = status
         self.exit_message = decision.message
@@ -104,14 +126,22 @@ class Session:
         if decision.action is Action.REFER:
             return self._exit(decision, "referred")
         # Free text is checked before any of it can reach the language model.
-        for field in (s["prediction"], s["event"]):
-            decision = governor.check_user_text(field)
+        # The situation and the prediction are read together, so a short situation like "Viva" has its context.
+        for field in (f"Situation: {s['event']}. What my anxiety predicts: {s['prediction']}",):
+            decision = governor.check_user_text(field, "worry")
             if decision.action is Action.CRISIS:
                 return self._exit(decision, "crisis")
             if decision.action is Action.MEDICAL:
                 return self._exit(decision, "medical")
-        self._step("governor", "code", "Entry checks passed", (time.perf_counter() - started) * 1000)
-        self._log("Safety Governor", "Entry checks passed")
+            if decision.action is Action.DANGER:
+                return self._exit(decision, "referred")
+            if decision.action is Action.OFF_TOPIC:
+                self.status = "unclear"
+                self.exit_message = decision.message
+                self._log(decision.source, decision.reason)
+                return
+        self._step("safety", "agent" if decision.source == "Safety agent" else "code", f"Entry checks passed ({decision.source.lower()})", (time.perf_counter() - started) * 1000)
+        self._log(decision.source, "Entry checks passed: screening, safety answers, situation and prediction")
 
         started = time.perf_counter()
         impact, body_state = s.get("impact"), s.get("body_state")
@@ -123,6 +153,7 @@ class Session:
             "body_reading": device.BODY_TEXT[State(body_state)][0] if body_state else None,
         })
         ms = (time.perf_counter() - started) * 1000
+        self._verifier_notes(self.team)
         self.plan = plan.model_dump()
         # Fixed code, not the planner, decides when the first step must start gently.
         reasons = self._gentle_reasons(care.gad_band(score), impact, body_state, bool(s.get("body_demo")))
@@ -174,7 +205,9 @@ class Session:
         s = self.setup
         last = self.question["line"] if self.question else None
         started = time.perf_counter()
-        direction, source = self.team.direct({
+        # A turn after instruction-like text is written by the scripted agents, so the text can't steer them.
+        team = _ScriptedTeam(self.team) if self.injected else self.team
+        direction, source = team.direct({
             "event": s["event"], "prediction": s["prediction"], "state": state.value, "model_verdict": verdict_label, "turn": self.turn,
             "last_question": last, "user_answer": answer, "behaviour": behaviour,
         })
@@ -183,11 +216,12 @@ class Session:
         self._log(f"Director ({source})", f"{TACTIC_LABEL[direction.tactic]} from {direction.speaker}. {direction.reason}", round(ms))
 
         started = time.perf_counter()
-        line, source = self.team.scene({
+        line, source = team.scene({
             "event": s["event"], "difficulty": self.level, "tactic": direction.tactic, "speaker": direction.speaker,
             "turn": self.turn, "last_question": last, "user_answer": answer,
         })
         ms = (time.perf_counter() - started) * 1000
+        self._verifier_notes(team)
         self._step("scene", "llm", f"Wrote a level {self.level} line", ms, source)
         self._log(f"Scene Agent ({source})", f"Wrote a level {self.level} line for {direction.speaker}", round(ms))
         self._step("check", "code", "Output check: no diagnosis, no scoring, no comment on nerves", 0.1)
@@ -205,12 +239,15 @@ class Session:
         self.readings = []
 
         started = time.perf_counter()
-        decision = governor.check_user_text(text)
-        self._step("governor", "code", "Answer text checked before any language model sees it", (time.perf_counter() - started) * 1000)
+        decision = governor.check_user_text(text, "answer")
+        self._step("safety", "agent" if decision.source == "Safety agent" else "code", f"{decision.source} read the answer first: {'instruction-like text, treated as content' if decision.injection else 'no risk found' if decision.action is Action.ALLOW else decision.action.value.lower()}", (time.perf_counter() - started) * 1000)
         if decision.action is Action.CRISIS:
             return self._exit(decision, "crisis")
         if decision.action is Action.MEDICAL:
             return self._exit(decision, "medical")
+        if decision.action is Action.DANGER:
+            return self._exit(decision, "referred")
+        self.injected = decision.injection
         if decision.action is Action.STOP:
             return self.stop(decision.reason)
 
@@ -309,11 +346,13 @@ class Session:
             raise ValueError("Session isn't ready for a summary")
         post = post or {}
         note = post.get("note") or ""
-        decision_note = governor.check_user_text(note)
+        decision_note = governor.check_user_text(note, "note") if note.strip() else governor.ALLOW
         if decision_note.action is Action.CRISIS:
             return self._exit(decision_note, "crisis")
         if decision_note.action is Action.MEDICAL:
             return self._exit(decision_note, "medical")
+        if decision_note.action is Action.DANGER:
+            return self._exit(decision_note, "referred")
         self.pipeline = []
         self.readings = []
         self.post = post
@@ -341,6 +380,7 @@ class Session:
             "plan_decision": decision, "next_ladder_step": self._next_rung(),
         })
         ms = round((time.perf_counter() - started) * 1000)
+        self._verifier_notes(self.team)
         if summary["source"] == "Simulated":
             # A simulated reading says nothing about the person, so no model may describe it as if it did.
             debrief.insight = (f"Your questionnaire was in the {band.lower()} range. The reading in this session was a simulated "

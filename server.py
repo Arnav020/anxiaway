@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from toward.agents import FAST_MODEL, PLAN_MODEL, AgentTeam, Voice, speech_metrics
 from toward.governor import Action, check_entry, output_is_safe
-from toward import checks, device, record
+from toward import checks, device, record, safety
 from toward.replay import INJECTABLE
 from toward.session import Session
 from toward.state import BadToken, seal, unseal
@@ -42,6 +42,7 @@ REQUIRE_CHECK = True
 team = AgentTeam()
 scripted_team = AgentTeam()
 scripted_team.llm = None
+safety.install(safety.SafetyAgent(team.llm.client) if team.llm else None)
 voice = Voice()
 
 
@@ -284,6 +285,8 @@ def create(setup: SetupIn, request: Request) -> dict:
     facts["record_note"] = record.plan_note(record.parse_predictions(setup.history), _now_ms())
     session = Session(facts, team if _llm_ok() else scripted_team)
     session.start()
+    if session.status == "unclear":
+        raise HTTPException(422, session.exit_message)
     return _reply(session)
 
 
@@ -391,7 +394,7 @@ def record_check(body: WorryIn, request: Request) -> dict:
 @app.post("/api/record/sharpen")
 def record_sharpen(body: WorryIn, request: Request) -> dict:
     _limit(request)
-    return record.sharpen(body.worry, team.llm if _llm_ok() else None)
+    return record.sharpen(body.worry, team.llm if _llm_ok() else None, team.verifier)
 
 
 @app.post("/api/record/review")
@@ -399,7 +402,7 @@ def record_review(body: RecordIn, request: Request) -> dict:
     _limit(request)
     client = team.llm.client if team.llm and _llm_ok() else None
     seen = None if body.checks is None else checks.parse_checks(body.checks)
-    return record.review(record.parse_predictions(body.predictions), _now_ms(), client, body.just_checked, seen)
+    return record.review(record.parse_predictions(body.predictions), _now_ms(), client, body.just_checked, seen, team.verifier)
 
 
 # Local development only. On Vercel the CDN serves public/ directly.

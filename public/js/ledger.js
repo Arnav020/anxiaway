@@ -120,18 +120,21 @@ export function renderBars(root, stats) {
   };
   root.replaceChildren(row("How likely it felt, on average", stats.forecast_pct, "fill-forecast"), row("How often it happened", stats.actual_pct, "fill-actual"));
 }
+const AGENT_BY = ["Safety agent", "Verifier agent"];
 const TOOL_LABEL = {
   safety_scan: "Safety check", get_screening_trend: "Read the anxiety checks", get_record_stats: "Read the numbers", list_open_predictions: "Read open predictions",
   list_checked_predictions: "Read checked predictions", compare_themes: "Compared themes", schedule_follow_up: "Scheduled a follow up", finish_review: "Made a decision",
+  verify: "Verifier agent checked the decision",
 };
 export async function renderTrace(list, trace, animate = false) {
   list.replaceChildren();
   for (const step of trace || []) {
     const li = el("li", `trace-item${step.rejected ? " rejected" : ""}`);
     li.append(
-      el("i", `dot ${step.by === "Groq" ? "dot-llm" : "dot-code"}`),
-      el("span", "title-4", TOOL_LABEL[step.tool] || step.tool),
-      el("span", "caption-5 muted trace-by", step.by === "Groq" ? "Agent's choice, run by fixed code" : step.by === "Scripted" ? "Scripted fallback" : "Fixed code"),
+      el("i", `dot ${step.by === "Groq" ? "dot-llm" : AGENT_BY.includes(step.by) ? "dot-agent" : "dot-code"}`),
+      el("span", "title-4", step.tool === "safety_scan" && AGENT_BY.includes(step.by) ? "Safety agent read the record" : TOOL_LABEL[step.tool] || step.tool),
+      el("span", "caption-5 muted trace-by", step.by === "Groq" ? "Agent's choice, run by fixed code" : step.by === "Scripted" ? "Scripted fallback"
+        : AGENT_BY.includes(step.by) ? "Checking agent, fixed code acts on its verdict" : step.by === "Backup rules" ? "Backup rules (Safety agent unreachable)" : "Fixed code"),
       el("span", "body-6 trace-sum", step.summary),
     );
     list.append(li);

@@ -267,7 +267,9 @@ button.source:hover { transform: translateY(-2px); }
 .hud-verdict[data-v=moderate] i { background: var(--s-high); }
 .hud-verdict[data-v=high] i { background: var(--s-limit); }
 .dot-model { background: var(--s-engaged); }
+.dot-agent { background: var(--s-low); }
 .trail li[data-kind=model] { background: #DDE9E1; }
+.trail li[data-kind=agent] { background: #DCE4EE; }
 
 .breath { display: flex; align-items: center; gap: 16px; padding: 12px; border-radius: 16px; background: var(--sunk); }
 .breath-ball { width: 48px; height: 48px; border-radius: 9999px; background: var(--s-engaged); animation: breathe 10s cubic-bezier(.45, 0, .55, 1) infinite; }

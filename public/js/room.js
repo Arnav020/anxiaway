@@ -33,6 +33,7 @@ const STATE_TEXT = {
 const NODE_NAMES = {
   governor: "Safety Governor", signal: "Signal Layer", model: "Anxiety model", policy: "Difficulty policy",
   director: "Director", scene: "Guide agent", check: "Output check", planner: "Care planner",
+  safety: "Safety agent", verifier: "Verifier agent",
 };
 const INJECT_LABELS = { auto: "Next in script", calm: "Calm", rising: "Rising", high: "High", limit: "Safety limit", movement: "Movement", sensor_loss: "ECG lost" };
 const SAMPLE_ANSWERS = [
@@ -727,10 +728,11 @@ async function playPipeline(steps) {
   list.replaceChildren();
   for (const step of steps || []) {
     const li = el("li", "pipe");
-    const dotClass = step.kind === "llm" ? "dot-llm" : step.kind === "model" ? "dot-model" : "dot-code";
+    const dotClass = step.kind === "llm" ? "dot-llm" : step.kind === "model" ? "dot-model" : step.kind === "agent" ? "dot-agent" : "dot-code";
+    const name = step.node === "safety" && step.kind !== "agent" ? "Safety backup rules" : NODE_NAMES[step.node] || step.node;
     li.append(
       el("i", `dot ${dotClass}`),
-      el("span", "pipe-name", NODE_NAMES[step.node] + (step.source === "Scripted" ? " (scripted)" : "")),
+      el("span", "pipe-name", name + (step.source === "Scripted" ? " (scripted)" : "")),
       el("span", "pipe-ms", step.ms < 1 ? "<1 ms" : `${Math.round(step.ms)} ms`),
       el("span", "pipe-sum", step.summary),
     );
@@ -829,7 +831,7 @@ function animateReadings(readings) {
 }
 function trailItem(entry) {
   const li = el("li");
-  li.dataset.kind = entry.who.startsWith("Safety") ? "governor" : entry.who.startsWith("Difficulty") ? "policy" : entry.who.startsWith("Anxiety") ? "model" : entry.who.includes("(") ? "llm" : "other";
+  li.dataset.kind = entry.who.startsWith("Safety agent") || entry.who.startsWith("Verifier") ? "agent" : entry.who.startsWith("Safety") || entry.who.startsWith("Backup") ? "governor" : entry.who.startsWith("Difficulty") ? "policy" : entry.who.startsWith("Anxiety") ? "model" : entry.who.includes("(") ? "llm" : "other";
   li.append(el("span", "t-who", entry.who), el("span", "t-ms", entry.ms ? `${entry.ms} ms` : ""), el("span", "t-what", entry.text));
   return li;
 }

@@ -457,6 +457,8 @@ def test_scripted_plan_stays_within_available_days():
 def client(monkeypatch):
     import server
     monkeypatch.setattr(server, "team", scripted_team())
+    from toward import safety
+    safety.install(None)
     monkeypatch.setattr(server, "REQUIRE_CHECK", False)
     server._llm_hits.clear()
     server._hits.clear()

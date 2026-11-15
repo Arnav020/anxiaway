@@ -5,3 +5,6 @@ __pycache__/
 
 .vercel
 .env*
+tests/redteam/*.log
+tests/redteam/*_report.json
+.claude/

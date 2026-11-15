@@ -46,6 +46,7 @@ $("p-setup").addEventListener("submit", async (e) => {
   $("p-sharpen").disabled = true;
   try {
     const result = await ledger.post("record/sharpen", { worry });
+    if (result.status === "unclear") return showError("p-error", result.message);
     if (result.status !== "ok") return support(result);
     draft.theme = result.theme;
     $("p-pred").value = result.prediction;
@@ -68,6 +69,7 @@ $("p-confirm").addEventListener("submit", async (e) => {
   showError("p-confirm-error");
   try {
     const check = await ledger.post("record/check", { worry: text });
+    if (check.status === "unclear") return showError("p-confirm-error", check.message);
     if (check.status !== "ok") return support(check);
   } catch (err) {
     return showError("p-confirm-error", err.message);

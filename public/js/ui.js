@@ -131,7 +131,8 @@ export async function runAgent(card, { force = false, animate = true, quietScree
   const legend = el("div", "row caption-4");
   const code = el("span", "row"); code.append(el("i", "dot dot-code"), el("span", "", "Fixed code"));
   const llm = el("span", "row"); llm.append(el("i", "dot dot-llm"), el("span", "", "Chosen by the language model"));
-  legend.append(code, llm);
+  const agent = el("span", "row"); agent.append(el("i", "dot dot-agent"), el("span", "", "Checking agent"));
+  legend.append(code, llm, agent);
   side.replaceChildren(el("span", "caption-3", "How it decided"), legend, list);
   await ledger.renderTrace(list, review.trace, animate && fresh);
   return review;

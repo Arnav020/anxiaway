@@ -61,6 +61,7 @@
 .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 9999px; }
 .dot-code { background: var(--accent); }
 .dot-llm { background: var(--terracotta); }
+.dot-agent { background: var(--s-low); }
 .trace { display: flex; flex-direction: column; gap: 8px; }
 .trace-item { display: grid; grid-template-columns: 8px 1fr; gap: 0 8px; align-items: center; animation: step-in .5s var(--curve) both; }
 .trace-by, .trace-sum { grid-column: 2; }

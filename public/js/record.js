@@ -283,6 +283,7 @@ $("add-form").addEventListener("submit", async (e) => {
   $("sharpen-btn").disabled = true;
   try {
     const result = await ledger.post("record/sharpen", { worry });
+    if (result.status === "unclear") return showError("add-error", result.message);
     if (result.status !== "ok") return showSupport(result);
     addState.worry = worry;
     addState.theme = result.theme;
@@ -309,6 +310,7 @@ $("confirm-form").addEventListener("submit", async (e) => {
   // The edited wording gets the same fixed safety check before it's saved.
   try {
     const check = await ledger.post("record/check", { worry: text });
+    if (check.status === "unclear") return showError("confirm-error", check.message);
     if (check.status !== "ok") return showSupport(check);
   } catch (err) {
     return showError("confirm-error", err.message);
