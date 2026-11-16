@@ -1,4 +1,6 @@
 {
+  "framework": "fastapi",
+  "installCommand": "pip install -r requirements.txt",
   "cleanUrls": true,
   "headers": [{ "source": "/(.*)", "headers": [
     { "key": "X-Content-Type-Options", "value": "nosniff" },
