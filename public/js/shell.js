@@ -12,7 +12,7 @@ const STATUS_KEY = "toward.device.status";
 
 function tabList(active, className) {
   const nav = el("nav", className);
-  nav.setAttribute("aria-label", "Toward");
+  nav.setAttribute("aria-label", "AnxiAway");
   TABS.forEach(([id, label, href, glyph]) => {
     const a = el("a", "shell-tab");
     a.href = href;
@@ -45,8 +45,8 @@ export function mountShell(active) {
   // The logo and the labelled link both leave the app for the landing page.
   brand.href = "/";
   brand.title = "Back to the landing page";
-  brand.setAttribute("aria-label", "Toward, back to the landing page");
-  brand.append(el("span", "brand-dot"), el("span", "title-2", "Toward"));
+  brand.setAttribute("aria-label", "AnxiAway, back to the landing page");
+  brand.append(el("span", "brand-dot"), el("span", "title-2", "AnxiAway"));
   const about = el("a", "shell-about body-5");
   about.href = "/";
   about.append(icon("arrow-left", "i20"), el("span", "", "Landing page"));
@@ -59,7 +59,7 @@ export function mountShell(active) {
   const note = el("p", "caption-5 muted", "A student research prototype for anxiety screening and practice support. It doesn't diagnose or treat. If you're struggling, speak to a counsellor or doctor. In India, Tele-MANAS is 14416.");
   const links = el("nav", "app-foot-links caption-4");
   links.setAttribute("aria-label", "More");
-  [["About Toward", "/"], ["How it's built", "/about"], ["Privacy", "/privacy"]].forEach(([text, href]) => {
+  [["About AnxiAway", "/"], ["How it's built", "/about"], ["Privacy", "/privacy"]].forEach(([text, href]) => {
     const a = el("a", "", text);
     a.href = href;
     links.append(a);

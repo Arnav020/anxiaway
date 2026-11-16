@@ -28,7 +28,7 @@ let pending = null;
 let timer = null;
 let seconds = 0;
 
-$("contract").textContent = `GET  TOWARD_DEVICE_API_URL
+$("contract").textContent = `GET  ANXIAWAY_DEVICE_API_URL
 {
   "samples": [
     { "t": 0, "ecg_hr": 78.2, "ppg_hr": 77.9, "eda": 4.01, "motion": 0.03, "quality": 0.95 }

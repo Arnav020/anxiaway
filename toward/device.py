@@ -1,8 +1,8 @@
 """The wearable link: ready, and switched off until the device API is set.
 
 Our capstone prototype streams ECG, PPG, skin conductance and motion to a mobile app, and that
-app talks to its own backend. To connect it, set TOWARD_DEVICE_API_URL to the endpoint that
-returns the latest readings (and TOWARD_DEVICE_API_KEY if it needs one). Nothing else changes:
+app talks to its own backend. To connect it, set ANXIAWAY_DEVICE_API_URL to the endpoint that
+returns the latest readings (and ANXIAWAY_DEVICE_API_KEY if it needs one). Nothing else changes:
 the same Signal Layer, verdict slot and screens are used.
 
 Until then every reading on screen comes from the synthetic stream, and is labelled that way.
@@ -71,7 +71,7 @@ _LABELS = {
 
 
 def configured() -> bool:
-    return bool(os.getenv("TOWARD_DEVICE_API_URL"))
+    return bool(os.getenv("ANXIAWAY_DEVICE_API_URL") or os.getenv("TOWARD_DEVICE_API_URL"))
 
 
 def availability(present: list[str] | tuple[str, ...]) -> list[dict]:
@@ -135,10 +135,10 @@ def normalise(payload: object) -> dict | None:
 
 def fetch_latest(get=httpx.get) -> dict | None:
     """Ask the device API for the latest readings. Any failure means no reading, never a guess."""
-    url = os.getenv("TOWARD_DEVICE_API_URL")
+    url = os.getenv("ANXIAWAY_DEVICE_API_URL") or os.getenv("TOWARD_DEVICE_API_URL")
     if not url:
         return None
-    key = os.getenv("TOWARD_DEVICE_API_KEY")
+    key = os.getenv("ANXIAWAY_DEVICE_API_KEY") or os.getenv("TOWARD_DEVICE_API_KEY")
     try:
         response = get(url, headers={"Authorization": f"Bearer {key}"} if key else {}, timeout=FETCH_TIMEOUT_S)
         response.raise_for_status()

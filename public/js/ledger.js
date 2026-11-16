@@ -160,12 +160,12 @@ export function downloadIcs(summary, description, when) {
   const stamp = (d) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const escape = (t) => t.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\n/g, " ");
   const start = new Date(when);
-  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Toward//Anxiety check-in//EN", "BEGIN:VEVENT",
-    `UID:${Date.now()}@toward`, `DTSTAMP:${stamp(new Date())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start.getTime() + 900000))}`,
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AnxiAway//Anxiety check-in//EN", "BEGIN:VEVENT",
+    `UID:${Date.now()}@anxiaway`, `DTSTAMP:${stamp(new Date())}`, `DTSTART:${stamp(start)}`, `DTEND:${stamp(new Date(start.getTime() + 900000))}`,
     `SUMMARY:${escape(summary)}`, `DESCRIPTION:${escape(description)}`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
-  link.download = "toward-check.ics";
+  link.download = "anxiaway-check.ics";
   link.click();
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }

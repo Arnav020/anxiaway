@@ -1,4 +1,4 @@
-# Toward
+# AnxiAway
 
 An agentic AI care prototype for **Healthcare & Human Well-being**, focused on anxiety. It checks anxiety with GAD-7 and a wearable, keeps what the person reports apart from what their body shows, and runs an agent that decides the next step, follows up, and replans from what really happened.
 
@@ -9,7 +9,7 @@ Built for Agentic AI Hackathon 2026, on the foundations of our final year capsto
 ## The app
 | Screen | Path | What it does |
 |---|---|---|
-| Landing | `/` | What Toward is, for a first visit |
+| Landing | `/` | What AnxiAway is, for a first visit |
 | Home | `/home` | Latest check, body reading, predictions, and the agent's next step |
 | Check | `/checkin` | Consent, safety questions, GAD-7, daily life impact, optional body reading, then one result |
 | Vitals | `/vitals` | The wearable, live signals, the sensor mask, and how a reading is used |
@@ -42,8 +42,8 @@ Language models get the GAD-7 band, strongest concerns, check scores and verdict
 The device link is built and tested, and stays off until the device API address is set:
 
 ```
-TOWARD_DEVICE_API_URL=https://<the API our mobile app uses>/latest
-TOWARD_DEVICE_API_KEY=<optional bearer token>
+ANXIAWAY_DEVICE_API_URL=https://<the API our mobile app uses>/latest
+ANXIAWAY_DEVICE_API_KEY=<optional bearer token>
 ```
 
 When set, `/api/device/status` reports it, the wearable option switches on in the Check and Vitals screens, and `POST /api/reading {"mode": "device"}` pulls the latest readings. Preferred reply, one sample a second:

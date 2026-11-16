@@ -1,4 +1,4 @@
-"""Toward API and local static server.
+"""AnxiAway API and local static server.
 
 Stateless, so it runs locally and on serverless hosts. On Vercel, files in public/ are
 served by the CDN and this app only handles /api.
@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent
 PUBLIC = ROOT / "public"
 MAX_AUDIO_BYTES = 4 * 1024 * 1024
 NOT_FOUND_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Page not found | Toward</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Page not found | AnxiAway</title>
 <meta name="robots" content="noindex"><link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/base.css"><link rel="stylesheet" href="/css/site.css"></head>
 <body><main class="notfound"><div class="notfound-face" aria-hidden="true"><i></i><i></i><b></b></div>
@@ -36,7 +36,7 @@ NOT_FOUND_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <a class="btn btn-cta btn-lg" href="/">Back to home</a></main></body></html>"""
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
-app = FastAPI(title="Toward", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="AnxiAway", docs_url=None, redoc_url=None, openapi_url=None)
 # A guided session must rest on a recent check. Tests switch this off to exercise the session rules directly.
 REQUIRE_CHECK = True
 team = AgentTeam()

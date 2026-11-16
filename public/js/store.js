@@ -1,4 +1,4 @@
-// Everything Toward remembers about a person lives here, in their own browser. The server keeps nothing.
+// Everything AnxiAway remembers about a person lives here, in their own browser. The server keeps nothing.
 const CHECKS = "toward.checks.v1";
 const PREFS = "toward.prefs.v1";
 const DAY = 86400000;

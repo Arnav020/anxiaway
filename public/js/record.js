@@ -260,7 +260,7 @@ $("agent-ics").addEventListener("click", () => {
   if (!target) return;
   const at = new Date(target.due_at && target.due_at > Date.now() ? target.due_at : Date.now() + DAY);
   at.setHours(18, 0, 0, 0);
-  ledger.downloadIcs("Toward: check your prediction", `Your anxiety predicted: ${target.text} What actually happened? Open your track record to log it.`, at);
+  ledger.downloadIcs("AnxiAway: check your prediction", `Your anxiety predicted: ${target.text} What actually happened? Open your track record to log it.`, at);
 });
 
 /* ---------- Adding ---------- */
