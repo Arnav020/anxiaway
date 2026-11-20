@@ -450,7 +450,7 @@ Deciding:
 - If needs_support is true, the next step is to talk to a counsellor or someone they trust.
 - If just_checked is present, the person has just found out what happened. Make next_action build directly on that result and its situation, as one small next test. Don't only repeat it.
 - If just_checked came true (yes or partly) and was worse than expected or the person struggled, first say plainly that it happened and was hard, then look at how they got through it. Never suggest the fear was exaggerated.
-- Never state how many, how often, or a screening range (no "several", "most", "moderate" and so on). The app shows those numbers itself.
+- Never state how many, how often, or a screening range (no "several", "a few", "many", "most", "moderate" and so on). The app shows those numbers itself. Say "this result" or "your record", not a count.
 
 Writing:
 - pattern: one plain sentence starting "In your record so far", naming something specific such as a theme and how they coped. It must agree with what_the_numbers_show. Never use the words state, forecast or overestimate.

@@ -55,7 +55,7 @@ RUBRICS = {
 - insight may only connect facts present in FACTS, and must not treat a simulated reading as the person's real body.
 - mission must be one small real-life action that directly tests the prediction in FACTS.
 - next_practice must follow plan_decision: advance means move toward next_ladder_step, repeat means an easier or varied version, pause_plan means no practice until they have spoken to a counsellor.
-- No digits anywhere.""",
+- No numerals (the characters 0 to 9). Fixed code already removes them, so never report a word such as "one" or "a" as a digit.""",
     "review": """KIND review: OUTPUT is the care agent's decision about the person's next step.
 - pattern must agree with what_the_numbers_show and the record in FACTS, and may not claim a pattern the record doesn't show.
 - Any statement of how many, how often, or of a screening range must match FACTS exactly. A count word ("several", "most") or a range ("moderate") that FACTS don't support is a problem.
@@ -63,7 +63,7 @@ RUBRICS = {
 - next_action must fit step: check means record what actually happened with the chosen prediction; test means one small real action that tests the chosen prediction; add means log a new prediction; screen means do an anxiety check; person means speak to a counsellor or doctor.
 - If a chosen_prediction is given, next_action must be about that prediction's situation.
 - why must give a reason from the person's own record, never mention tools, rules, sections or allowed steps.
-- No digits anywhere.""",
+- No numerals (the characters 0 to 9). Fixed code already removes them, so never report a word such as "one" or "a" as a digit.""",
 }
 
 
