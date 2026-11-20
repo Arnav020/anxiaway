@@ -213,7 +213,7 @@ function renderPlan(ms) {
   if (session.record_note) used.push("your prediction record");
   $("plan-basis-note").textContent = `This plan used ${used.join(", ")}.${b.gentle?.length ? ` It starts gently because ${b.gentle.join(" and ")}. That rule is fixed code, not the planner's choice.` : ""}`;
   $("plan-said").textContent = session.prediction;
-  $("plan-test").textContent = plan.testable_version;
+  $("plan-test").textContent = plan.how_to_know || "Write down what actually happened, as plainly as you can.";
   $("ladder").replaceChildren(...plan.steps.map((step, i) => {
     const li = el("li", `rung rung-${i + 1}`);
     li.style.animationDelay = `${i * 90}ms`;

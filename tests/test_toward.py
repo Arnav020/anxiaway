@@ -1063,3 +1063,13 @@ def test_plans_and_guide_lines_that_soothe_are_rejected():
     assert teaches_avoidance(calm)
     assert _OFF_SCENE.search("Notice the sounds around you, like a gentle tide, how does that feel?")
     assert not _OFF_SCENE.search("The queue is long today. What do you do next?")
+
+
+def test_plan_always_has_a_how_to_know_line():
+    from toward.agents import HOW_TO_KNOW_FALLBACK, LadderPlan, PlanStep, ScriptedAgents, _clean_plan
+    steps = [PlanStep(day=1, title="a", difficulty=1, test="b"), PlanStep(day=2, title="c", difficulty=3, test="d"),
+             PlanStep(day=3, title="e", difficulty=4, test="f")]
+    assert _clean_plan(LadderPlan(testable_version="x", target_pause_s=3, steps=steps), 7).how_to_know == HOW_TO_KNOW_FALLBACK
+    kept = _clean_plan(LadderPlan(testable_version="x", how_to_know="he laughs or sighs", target_pause_s=3, steps=steps), 7)
+    assert kept.how_to_know == "he laughs or sighs"
+    assert ScriptedAgents().plan({"days_until": 7}).how_to_know == HOW_TO_KNOW_FALLBACK
