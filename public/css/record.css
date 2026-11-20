@@ -84,6 +84,7 @@
 .pitch-page { background: #252B33; color: #F6F4EE; }
 .pitch { max-width: 1120px; min-height: 100dvh; margin: 0 auto; padding: 16px 24px 48px; display: flex; flex-direction: column; gap: 24px; }
 .pitch-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.pitch-top .btn { min-height: 44px; }
 .pitch-mode { display: inline-flex; align-items: center; gap: 8px; color: #D9CFB9; }
 .pulse { width: 8px; height: 8px; border-radius: 9999px; background: #D3A06F; animation: rec-pulse 1.2s var(--curve) infinite alternate; }
 .pitch-reset, .pitch-plain { color: #D5D2C8; }
@@ -151,3 +152,4 @@
   .fbar-track i, .trace-item, .pitch-step { transition: none; animation: none; }
   .pulse, .skeleton-line, .agent-loading .skeleton-title { animation: none; }
 }
+.tel-link { color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }

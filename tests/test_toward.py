@@ -800,8 +800,11 @@ def test_daily_life_impact_and_a_rising_trend_are_flagged_early():
     assert low_but_hard["band"] == "Minimal" and checks.IMPACT_NOTE in low_but_hard["notes"]
     rising = checks.evaluate([2, 2, 2, 2, 1, 1, 1], 1, False, False, False, None, _checks(4, 7), NOW)
     assert rising["trend"]["rising"] and checks.RISING_NOTE in rising["notes"] and rising["trend"]["next"] == "person"
-    steady = checks.trend(_checks(8, 7, 8, step_days=3), NOW)
+    steady = checks.trend([checks.CheckEntry(at=NOW - d * DAY, score=v) for d, v in ((29, 8), (15, 7), (1, 8))], NOW)
     assert steady["direction"] == "about the same" and not steady["rising"] and steady["next"] is None
+    # GAD-7 looks back two weeks, so checks closer together than that are never compared or called a trend.
+    quick = checks.trend(_checks(0, 11, 14, step_days=0.002), NOW)
+    assert quick["change"] is None and quick["direction"] is None and not quick["rising"]
     assert checks.trend(_checks(6, step_days=20), NOW)["next"] == "screen"
     assert checks.trend([], NOW)["next"] == "screen"
     assert checks.parse_checks([{"at": 5, "score": 99}, {"at": 9, "score": 4}])[0].score == 4

@@ -33,7 +33,16 @@ IMPACT_NOTE = (
     "You said this is making daily life very difficult. That matters more than the score, "
     "so it's worth speaking to a counsellor or doctor."
 )
-HEART_NOTE = "Guided sessions raise stress on purpose, so please get medical advice before trying one. The rest of Toward stays open to you."
+HEART_NOTE = "Guided sessions raise stress on purpose, so please get medical advice before trying one. Your record and the breathing pause stay open."
+SEVERE_HOLD_NOTE = ("A check in the last two weeks was in the severe range. GAD-7 looks back over two weeks, so a new check this soon "
+                    "doesn't replace it. Please speak to a counsellor or doctor before guided practice.")
+IMPACT_HOLD_NOTE = ("Your anxiety is making daily life extremely difficult. Please speak to a counsellor or doctor first, "
+                    "and use guided practice only alongside their support.")
+REFERRED_PATHWAY = {
+    "name": "A person first, then practice",
+    "why": "Guided practice raises stress on purpose, so it waits until a doctor or counsellor has advised you.",
+    "steps": ["Speak to a doctor or counsellor, and share this summary", "You can still write predictions and check what happened", "Repeat this check in two weeks"],
+}
 RISING_NOTE = "Your screening scores have risen over your last checks. That's worth talking through with a counsellor or doctor."
 
 
@@ -56,17 +65,28 @@ def parse_checks(raw: list[dict]) -> list[CheckEntry]:
     return sorted(parsed, key=lambda c: c.at)
 
 
+def spaced(checks: list[CheckEntry]) -> list[CheckEntry]:
+    """Checks at least two weeks apart, newest last. GAD-7 asks about two weeks, so closer checks aren't new information."""
+    picked: list[CheckEntry] = []
+    for c in reversed(checks):
+        if not picked or picked[-1].at - c.at >= RECHECK_DAYS * DAY_MS:
+            picked.append(c)
+    return list(reversed(picked))
+
+
 def trend(checks: list[CheckEntry], now_ms: int) -> dict:
     """Every number about the person's checks comes from here."""
     if not checks:
         return {"count": 0, "due": True, "latest_band": None, "latest_score": None, "days_since": None,
-                "direction": None, "change": None, "rising": False, "impact": None, "body_state": None, "next": "screen"}
+                "direction": None, "change": None, "rising": False, "impact": None, "body_state": None, "next": "screen",
+                "previous_days": None}
     latest = checks[-1]
     band = care.gad_band(latest.score)
     days = max(0, round((now_ms - latest.at) / DAY_MS))
-    change = latest.score - checks[-2].score if len(checks) > 1 else None
+    apart = spaced(checks)
+    change = latest.score - apart[-2].score if len(apart) > 1 else None
     direction = None if change is None else "higher" if change >= NOTICEABLE_CHANGE else "lower" if change <= -NOTICEABLE_CHANGE else "about the same"
-    last3 = [c.score for c in checks[-3:]]
+    last3 = [c.score for c in apart[-3:]]
     rising = len(last3) == 3 and last3[0] < last3[1] < last3[2] and last3[2] - last3[0] >= RISING_TOTAL
     hard = latest.impact is not None and latest.impact >= 2
     if band == "Severe" or (rising and _BAND_ORDER[band] >= 2) or hard:
@@ -75,9 +95,15 @@ def trend(checks: list[CheckEntry], now_ms: int) -> dict:
         step = "screen"
     else:
         step = None
+    previous_days = round((latest.at - checks[-2].at) / DAY_MS, 1) if len(checks) > 1 else None
     return {"count": len(checks), "due": days >= RECHECK_DAYS, "latest_band": band, "latest_score": latest.score,
             "days_since": days, "direction": direction, "change": change, "rising": rising,
-            "impact": latest.impact, "body_state": latest.body_state, "next": step}
+            "impact": latest.impact, "body_state": latest.body_state, "next": step, "previous_days": previous_days}
+
+
+def recent_severe(history: list[CheckEntry], now_ms: int) -> bool:
+    """A severe check stays the basis for two weeks, whatever is entered after it."""
+    return any(not c.sample and c.score >= 15 and now_ms - c.at < RECHECK_DAYS * DAY_MS for c in history)
 
 
 def agreement(band: str, body_state: str | None) -> dict:
@@ -99,13 +125,20 @@ def agreement(band: str, body_state: str | None) -> dict:
 
 
 def evaluate(gad_items: list[int], impact: int | None, self_harm: bool, heart_condition: bool, crisis: bool,
-             body: dict | None, history: list[CheckEntry], now_ms: int) -> dict:
+             body: dict | None, history: list[CheckEntry], now_ms: int, adult: bool = True, other_condition: bool = False) -> dict:
     score = sum(gad_items)
     band = care.gad_band(score)
-    decision = check_entry(score, self_harm, heart_condition, crisis)
+    decision = check_entry(score, self_harm, heart_condition, crisis, adult, other_condition)
     if decision.action is Action.CRISIS:
         return {"status": "crisis", "exit_message": decision.message}
+    if not adult:
+        return {"status": "minor", "exit_message": decision.message}
     status = "referred" if decision.action is Action.REFER else "ok"
+    message = "" if status == "ok" else HEART_NOTE if heart_condition and score < 15 and not other_condition else decision.message
+    if status == "ok" and recent_severe(history, now_ms):
+        status, message = "referred", SEVERE_HOLD_NOTE
+    elif status == "ok" and impact == 3 and score >= 10:
+        status, message = "referred", IMPACT_HOLD_NOTE
     body_state = body["state"] if body else None
     entry = CheckEntry(at=now_ms, score=score, impact=impact, body_state=body_state)
     seen = trend([*history, entry], now_ms)
@@ -114,12 +147,13 @@ def evaluate(gad_items: list[int], impact: int | None, self_harm: bool, heart_co
         notes.append(IMPACT_NOTE)
     if seen["rising"]:
         notes.append(RISING_NOTE)
+    pathway = care.PATHWAYS[band] if status == "ok" or band == "Severe" else REFERRED_PATHWAY
     result = {
-        "status": status, "exit_message": "" if status == "ok" else HEART_NOTE if heart_condition and score < 15 else decision.message,
+        "status": status, "exit_message": message,
         "at": now_ms, "score": score, "band": band, "concerns": care.gad_concerns(gad_items),
         "impact": impact, "impact_text": None if impact is None else IMPACT_OPTIONS[impact],
         "items": [{"text": care.GAD_ITEMS[i], "value": v, "answer": care.GAD_OPTIONS[v]} for i, v in enumerate(gad_items)],
-        "pathway": care.PATHWAYS[band], "notes": notes, "agreement": agreement(band, body_state),
+        "pathway": pathway, "notes": notes, "agreement": agreement(band, body_state),
         "trend": seen, "recheck_days": RECHECK_DAYS, "check_token": None,
     }
     if status == "ok":

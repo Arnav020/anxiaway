@@ -20,7 +20,8 @@ function showError(id, message) {
 }
 function showSupport(result) {
   $("support-title").textContent = result.status === "crisis" ? "You deserve support right now" : "Let's get you the right support";
-  $("support-text").textContent = result.message;
+  store.helpText($("support-text"), result.message);
+  if (result.status === "crisis" || result.status === "medical") store.setHold(result.status);
   $("support-origin").textContent = "This response comes from fixed safety wording, not from a language model.";
   $("support-dlg").showModal();
 }
@@ -43,11 +44,12 @@ $("confirm-yes").addEventListener("click", () => {
 function renderHero(stats) {
   const empty = stats.total === 0;
   $("empty-actions").hidden = !empty;
-  $("fbars").hidden = stats.checked === 0;
+  // One or two results are not a pattern, so no percentages until there are enough.
+  $("fbars").hidden = stats.checked === 0 || stats.state === "too_few";
   $("rec-stats").hidden = stats.checked === 0;
   const tag = $("sample-tag");
   tag.hidden = !stats.sample_count;
-  tag.textContent = stats.sample_count === stats.total ? "Sample data, not a real person" : `Includes ${stats.sample_count} sample ${stats.sample_count === 1 ? "entry" : "entries"}`;
+  tag.textContent = stats.sample_count === stats.total ? "Sample data, not a real person" : `${stats.sample_count} sample ${stats.sample_count === 1 ? "entry" : "entries"} shown, not counted in your numbers`;
   if (empty) {
     $("rec-headline").textContent = "Anxiety makes predictions. Check them against what happened.";
     $("rec-state").textContent = "Log what your anxiety says will happen, then come back and record what actually did. It's kept only in this browser, with no account.";

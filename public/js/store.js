@@ -46,7 +46,42 @@ export function daysSince(ms) { return Math.max(0, Math.round((Date.now() - ms) 
 export function sessionCheck() {
   const c = latestCheck();
   if (!c || !c.token || c.status !== "ok") return null;
+  const hold = prefs().hold;
+  // After a crisis, medical or panic exit, practice waits, and then needs a check taken after the exit.
+  if (hold && (Date.now() < hold.until || c.at < hold.since)) return null;
   return Date.now() - c.at <= SESSION_HOURS * 3600000 ? c : null;
+}
+
+/* The safety hold: what the person typed is remembered as a pause on practice, never as their words. */
+export const HOLD_HOURS = 24;
+const HOLD_REASON = {
+  crisis: "you told us you may not be safe",
+  medical: "you described physical symptoms, panic or a medicine question",
+  referred: "what you wrote needs a person rather than practice",
+};
+export function setHold(kind) {
+  const now = Date.now();
+  const current = prefs().hold;
+  const until = Math.max(now + HOLD_HOURS * 3600000, current?.until || 0);
+  setPrefs({ hold: { since: now, until, kind: kind in HOLD_REASON ? kind : "crisis" } });
+}
+export function activeHold() {
+  const hold = prefs().hold;
+  if (!hold) return null;
+  return { ...hold, active: Date.now() < hold.until, reason: HOLD_REASON[hold.kind] || HOLD_REASON.crisis };
+}
+
+// Helpline numbers become tappable links. The words around them stay exactly as fixed code wrote them.
+const PHONES = /(\b116 123\b|\b14416\b|\b112\b|\b1098\b|\b181\b)/g;
+export function helpText(node, text) {
+  node.replaceChildren(...String(text || "").split(PHONES).map((part, i) => {
+    if (i % 2 === 0) return document.createTextNode(part);
+    const a = document.createElement("a");
+    a.href = `tel:${part.replace(/\s/g, "")}`;
+    a.className = "tel-link";
+    a.textContent = part;
+    return a;
+  }));
 }
 
 // Clearly fictional, and always labelled on screen.

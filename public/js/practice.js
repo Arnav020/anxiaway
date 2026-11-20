@@ -15,12 +15,19 @@ const sessionHref = (id) => (id ? `/session?pred=${encodeURIComponent(id)}` : "/
 const checkHref = (id) => `/checkin?next=session${id ? `&pred=${encodeURIComponent(id)}` : ""}`;
 
 if (!ready) {
-  const blocked = latest && latest.status !== "ok" && Date.now() - latest.at < store.SESSION_HOURS * 3600000;
+  const hold = store.activeHold();
+  const held = !!hold?.active;
+  const blocked = held || (latest && latest.status !== "ok" && Date.now() - latest.at < store.SESSION_HOURS * 3600000);
   $("need-check").hidden = false;
   $("need-title").textContent = blocked ? "Guided sessions are paused for now" : "A two-minute check comes first";
-  $("need-text").textContent = blocked
-    ? "Your latest check pointed to a person as the better next step. Breathing and your record stay open."
-    : latest ? "Guided sessions need a check from the last 24 hours, because the safety questions come first." : "Guided sessions start from an anxiety check, because the safety questions come first.";
+  const until = held ? new Date(hold.until).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "";
+  const text = held
+    ? `Guided sessions are paused until ${until}, because ${hold.reason}. After that, a new check comes first. Please talk to someone you trust today. In India, Tele-MANAS is free on 14416, and in an emergency call 112. Breathing and your record stay open.`
+    : blocked
+      ? "Your latest check pointed to a person as the better next step. Breathing and your record stay open."
+      : hold ? "Before a guided session, please do a new check, because the safety questions come first."
+        : latest ? "Guided sessions need a check from the last 24 hours, because the safety questions come first." : "Guided sessions start from an anxiety check, because the safety questions come first.";
+  store.helpText($("need-text"), text);
   $("need-go").hidden = blocked;
   $("need-go").href = checkHref(pred);
   const start = $("start-session");

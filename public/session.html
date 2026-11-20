@@ -197,7 +197,7 @@
       <h1 class="heading-4">A few questions about how that was.</h1>
       <p class="body-3 muted" id="d-note"></p>
       <div class="post-q">
-        <span class="title-3">At its strongest, how anxious did you feel? <output class="mono" id="o-peak">5 of 10</output></span>
+        <span class="title-3">At its strongest, how anxious did you feel? <output class="mono" id="o-peak">Not rated yet</output></span>
         <input id="f-peak" type="range" min="0" max="10" value="5" aria-label="Peak anxiety from 0 to 10">
         <div class="scale caption-5 muted"><span>Not at all</span><span>The most I can imagine</span></div>
       </div>
@@ -207,8 +207,8 @@
       </div>
       <div class="post-q">
         <span class="title-3" id="d-pred"></span>
-        <span class="caption-5 muted">Did that happen?</span>
-        <div class="seg" id="q-outcome" role="radiogroup" aria-label="Did the feared outcome happen"><button type="button" role="radio" aria-checked="false" data-v="yes">Yes</button><button type="button" role="radio" aria-checked="false" data-v="partly">Partly</button><button type="button" role="radio" aria-checked="false" data-v="no">No</button></div>
+        <span class="caption-5 muted">In the practice just now, did that happen? The real event is checked later.</span>
+        <div class="seg" id="q-outcome" role="radiogroup" aria-label="Did the feared outcome happen in the practice"><button type="button" role="radio" aria-checked="false" data-v="yes">Yes</button><button type="button" role="radio" aria-checked="false" data-v="partly">Partly</button><button type="button" role="radio" aria-checked="false" data-v="no">No</button></div>
       </div>
       <div class="post-q">
         <span class="title-3">How likely does that prediction feel now? <output class="mono" id="o-after">80%</output></span>
@@ -324,9 +324,14 @@
     <div class="sheet-card clay">
       <span class="exit-icon"><i class="icon i24" style="--i:url(/icons/lifebuoy.svg)"></i></span>
       <h1 class="heading-4" id="exit-title"></h1>
+      <p class="title-3" id="exit-ended" hidden>Your session has ended. Guided practice is paused for the next 24 hours.</p>
       <p class="title-2" id="exit-text"></p>
       <p class="caption-5 muted">This response comes from fixed safety rules, not from a language model.</p>
-      <a class="btn btn-white" href="/home"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Back to Home</a>
+      <div class="row">
+        <a class="btn btn-cta" id="exit-call" href="tel:14416">Call Tele-MANAS, 14416</a>
+        <a class="btn btn-white" id="exit-breathe" href="/practice#breathe" hidden>Slow breathing, with a guide</a>
+        <a class="btn btn-white" href="/home"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Back to Home</a>
+      </div>
     </div>
   </section>
 </main>

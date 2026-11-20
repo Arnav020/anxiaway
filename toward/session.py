@@ -4,6 +4,7 @@ The whole session serialises to a dict, so it can travel in a signed token.
 """
 from __future__ import annotations
 
+import re
 import time
 
 from . import care, checks, device, governor
@@ -47,6 +48,42 @@ class _ScriptedTeam:
 
     def scene(self, facts: dict):
         return self.scripted.scene(facts), "Scripted"
+
+
+_DISTRESS = re.compile(
+    r"(too much|overwhelm|can'?t (do|handle|cope with|take) (this|it|any ?more)|too hard|make (it|this|the questions?) easier|"
+    r"skip the hard|i just want to (feel calm|stop feeling|calm down)|i'?m (so |really )?(scared|terrified|panicking|freaking out)|this is (really )?hard)",
+    re.I,
+)
+_LIMITS = re.compile(
+    r"(diagnos|do i have (gad|generali[sz]ed|panic|social anxiety|an? anxiety|a disorder|depression|adhd)|what disorder|"
+    r"promise( me)?|guarantee|tell me (honestly )?(that )?(i'?ll|i will|i'?m going to) (be fine|pass|be ok)|"
+    r"(am i|i'?m) going to be (fine|ok|okay)|will i (pass|be fine|freeze)|"
+    r"pretend (you are|you'?re|to be) an? (psychiatrist|doctor|therapist|psychologist|counsell?or))",
+    re.I,
+)
+DISTRESS_LEAD = "That sounds like a lot. You can pause or stop at any time with the Stop button, and that's completely fine. If you'd like to carry on: "
+LIMITS_LEAD = "I can't diagnose anything or promise how it will go. A doctor or counsellor can help with questions like that. Back in the practice: "
+
+
+def response_lead(answer: str | None) -> str:
+    if not answer:
+        return ""
+    if _LIMITS.search(answer):
+        return LIMITS_LEAD
+    if _DISTRESS.search(answer):
+        return DISTRESS_LEAD
+    return ""
+
+
+LEVELS = (1, 3, 4)
+GENTLE_LEVELS = (1, 2, 3)
+
+
+def ladder_days(days_until: int) -> tuple[int, int, int]:
+    """Steps between today and the event. An event tomorrow means every step is today."""
+    d = max(1, days_until)
+    return (1, 1, 1) if d == 1 else (1, max(1, round(d / 2)), d)
 
 
 def next_level(state: State, level: int) -> int:
@@ -133,7 +170,7 @@ class Session:
                 return self._exit(decision, "crisis")
             if decision.action is Action.MEDICAL:
                 return self._exit(decision, "medical")
-            if decision.action is Action.DANGER:
+            if decision.action in (Action.DANGER, Action.REFER):
                 return self._exit(decision, "referred")
             if decision.action is Action.OFF_TOPIC:
                 self.status = "unclear"
@@ -155,12 +192,16 @@ class Session:
         ms = (time.perf_counter() - started) * 1000
         self._verifier_notes(self.team)
         self.plan = plan.model_dump()
-        # Fixed code, not the planner, decides when the first step must start gently.
+        # Fixed code, not the planner, sets the shape of the ladder: the same check and event date always give the same
+        # days and levels, the belief stays in the person's own words, and the first step is always the smallest.
         reasons = self._gentle_reasons(care.gad_band(score), impact, body_state, bool(s.get("body_demo")))
-        if reasons and self.plan["steps"][0]["difficulty"] > GENTLE_LEVEL:
-            self.plan["steps"][0]["difficulty"] = GENTLE_LEVEL
+        self.plan["steps"] = sorted(self.plan["steps"], key=lambda st: st["difficulty"])[:3]
+        for step, day, level in zip(self.plan["steps"], ladder_days(int(s["days_until"])), GENTLE_LEVELS if reasons else LEVELS):
+            step["day"], step["difficulty"] = day, level
+        said = " ".join(s["prediction"].split())
+        self.plan["testable_version"] = said if said[-1:] in ".?!" else f"{said}."
         if reasons:
-            self._log("Difficulty policy", f"Gentle start, because {' and '.join(reasons)}. The first step is capped at level {GENTLE_LEVEL}.")
+            self._log("Difficulty policy", f"Gentle start, because {' and '.join(reasons)}. The levels are {', '.join(map(str, GENTLE_LEVELS))}.")
         self.level = self.plan["steps"][0]["difficulty"]
         self.status = "planned"
         self._step("planner", "llm", f"Built a {len(plan.steps)} step ladder", ms, source)
@@ -228,6 +269,12 @@ class Session:
 
         if self.status != "practice":
             return  # The user stopped while the line was being written. Stop wins.
+        lead = response_lead(answer)
+        if lead:
+            # Fixed words, before the guide's line: distress is acknowledged and limits are named, but the level doesn't drop.
+            self._log("Safety Governor", "Acknowledged what the person said, and reminded them that stop always works" if lead == DISTRESS_LEAD
+                      else "Said plainly that it can't diagnose or promise, and pointed to a doctor or counsellor")
+            line = f"{lead}{line[:1].lower()}{line[1:]}" if line[:1].isupper() and not line.startswith("I ") else f"{lead}{line}"
         self.question = {"member": direction.speaker, "line": line, "tactic": direction.tactic,
                          "tactic_label": TACTIC_LABEL[direction.tactic], "level": self.level}
 
@@ -245,7 +292,7 @@ class Session:
             return self._exit(decision, "crisis")
         if decision.action is Action.MEDICAL:
             return self._exit(decision, "medical")
-        if decision.action is Action.DANGER:
+        if decision.action in (Action.DANGER, Action.REFER):
             return self._exit(decision, "referred")
         self.injected = decision.injection
         if decision.action is Action.STOP:
@@ -351,7 +398,7 @@ class Session:
             return self._exit(decision_note, "crisis")
         if decision_note.action is Action.MEDICAL:
             return self._exit(decision_note, "medical")
-        if decision_note.action is Action.DANGER:
+        if decision_note.action in (Action.DANGER, Action.REFER):
             return self._exit(decision_note, "referred")
         self.pipeline = []
         self.readings = []
@@ -393,7 +440,7 @@ class Session:
             "measured_tests": self.measured_tests, "questions_answered": self.turn,
             "highest_level": max((t["level"] for t in self.turn_log), default=self.level),
             "limit_events": self.limit_events, "ended_early": self.ended_early,
-            "decision": decision, "summary": debrief.summary, "insight": debrief.insight,
+            "decision": decision, "summary": debrief.summary, "insight": debrief.insight, "days_until": self.setup["days_until"],
             "next_step": NEXT_STEP_TEXT[decision], "mission": debrief.mission, "next_practice": debrief.next_practice,
             "next_day": self._next_day(decision), "evidence": self.evidence, "source": source,
             "post": post, "verdict": summary, "verdicts": self.verdicts,

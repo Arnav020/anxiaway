@@ -47,11 +47,13 @@
   <!-- 2. Safety -->
   <form class="check-step" id="s-safety" novalidate hidden>
     <span class="caption-3 eyebrow">Step 1 of 4 · Safety</span>
-    <h1 class="heading-3">Three safety questions first.</h1>
+    <h1 class="heading-3">Five safety questions first.</h1>
     <p class="body-3 muted">Please answer honestly. A yes doesn't mean anything is wrong with you. It means a person can help more than this tool can today.</p>
     <div class="yn clay" id="q-harm"><span class="title-3">Have you had thoughts of harming yourself recently?</span><div class="seg" role="radiogroup" aria-label="Thoughts of harming yourself"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
     <div class="yn clay" id="q-crisis"><span class="title-3">Are you in crisis, or feeling unsafe, right now?</span><div class="seg" role="radiogroup" aria-label="In crisis right now"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
     <div class="yn clay" id="q-heart"><span class="title-3">Do you have a heart condition, or has a doctor told you to avoid stress?</span><div class="seg" role="radiogroup" aria-label="Heart condition"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
+    <div class="yn clay" id="q-adult"><span class="title-3">Are you 18 or older?</span><div class="seg" role="radiogroup" aria-label="18 or older"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
+    <div class="yn clay" id="q-other"><span class="title-3">Do any of these apply to you: pregnancy, PTSD or past trauma, panic attacks, taking or recently changing medicine for your mental health, or using alcohol or drugs to cope?</span><div class="seg" role="radiogroup" aria-label="Pregnancy, trauma, panic attacks, medicine or substance use"><button type="button" role="radio" aria-checked="false" data-v="false">No</button><button type="button" role="radio" aria-checked="false" data-v="true">Yes</button></div></div>
     <p class="error" id="e-safety" role="alert" hidden></p>
     <button class="btn btn-cta btn-lg wiz-next" type="submit">Continue<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
   </form>
@@ -199,7 +201,10 @@
       <h1 class="heading-4" id="exit-title"></h1>
       <p class="title-2" id="exit-text"></p>
       <p class="caption-5">This response comes from fixed safety rules, not from a language model. Nothing you answered was stored.</p>
-      <a class="btn btn-white" href="/home" style="align-self: flex-start"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Back to Home</a>
+      <div class="row">
+        <a class="btn btn-cta" href="tel:14416">Call Tele-MANAS, 14416</a>
+        <a class="btn btn-white" href="/home"><i class="icon" style="--i:url(/icons/arrow-left.svg)"></i>Back to Home</a>
+      </div>
     </div>
   </section>
 </main>

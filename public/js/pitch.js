@@ -1,10 +1,11 @@
 import * as ledger from "/js/ledger.js";
+import * as store from "/js/store.js";
 import { OUTCOME, COPED, COMPARED, segGroup } from "/js/ledger.js";
 
 const $ = (id) => document.getElementById(id);
 const ACTIVE = "toward.pitch.active";
 const STEPS = ["p-setup", "p-confirm", "p-locked", "p-verdict", "p-result"];
-const draft = { belief: 70, theme: "other", sample: true };
+const draft = { belief: 70, theme: "other" };
 const verdict = { outcome: null, compared: null, coped: null };
 let timer = null;
 
@@ -23,7 +24,8 @@ function showError(id, message) {
 }
 function support(result) {
   $("support-title").textContent = result.status === "crisis" ? "You deserve support right now" : "Let's get you the right support";
-  $("support-text").textContent = result.message;
+  store.helpText($("support-text"), result.message);
+  if (result.status === "crisis" || result.status === "medical") store.setHold(result.status);
   $("support-dlg").showModal();
 }
 $("support-close").addEventListener("click", () => $("support-dlg").close());
@@ -34,10 +36,6 @@ $("p-chips").querySelectorAll(".chip").forEach((chip) => chip.addEventListener("
   $("p-chips").querySelectorAll(".chip").forEach((c) => c.classList.toggle("is-on", c === chip));
 }));
 $("p-belief").addEventListener("input", (e) => { draft.belief = Number(e.target.value); $("p-belief-out").textContent = `${e.target.value}%`; });
-$("p-sample").addEventListener("click", () => {
-  draft.sample = !draft.sample;
-  $("p-sample").setAttribute("aria-checked", String(draft.sample));
-});
 $("p-setup").addEventListener("submit", async (e) => {
   e.preventDefault();
   showError("p-error");
@@ -74,9 +72,7 @@ $("p-confirm").addEventListener("submit", async (e) => {
   } catch (err) {
     return showError("p-confirm-error", err.message);
   }
-  // No open sample entries here, so the agent's next step comes from the live result.
-  if (draft.sample) ledger.loadSample(false);
-  else ledger.clearSample();
+  // Pitch mode records only the real prediction. Sample entries never enter the record or its numbers.
   const item = ledger.add({ text, how_to_check: $("p-check").value.trim(), theme: draft.theme, belief_before: draft.belief, source: "pitch", due_at: Date.now() + 3600000 });
   setActive(item.id);
   showLocked(item);
@@ -140,10 +136,14 @@ async function showResult(item) {
   show("p-result");
   try {
     const stats = await ledger.post("record/stats", { predictions: ledger.forApi() });
-    ledger.renderBars($("r-bars"), stats);
-    $("r-state").textContent = stats.state_text;
-    $("r-sample").hidden = !stats.sample_count;
-    $("r-sample").textContent = `${stats.sample_count} sample ${stats.sample_count === 1 ? "entry" : "entries"} shown. Only this prediction is real.`;
+    // One result is not a pattern: no record-wide percentages until there are enough real checks.
+    $("r-bars").hidden = stats.state === "too_few";
+    if (stats.state !== "too_few") ledger.renderBars($("r-bars"), stats);
+    $("r-state").textContent = stats.state === "too_few"
+      ? (item.outcome === "no" ? "This is one result. One check isn't a pattern, so the record makes no claim about your anxiety yet."
+        : "It happened. Some worries do come true, and what matters here is how you got through it. One check isn't a pattern.")
+      : stats.state_text;
+    $("r-sample").hidden = true;
     const review = await ledger.post("record/review", { predictions: ledger.forApi(), just_checked: item.id });
     $("r-loading").hidden = true;
     if (review.status !== "ok") return support(review);

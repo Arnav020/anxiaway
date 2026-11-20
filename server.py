@@ -134,6 +134,8 @@ class ScreenIn(BaseModel):
     self_harm: bool = False
     heart_condition: bool = False
     crisis: bool = False
+    adult: bool = True
+    other_condition: bool = False
 
 
 class WorryIn(BaseModel):
@@ -157,6 +159,8 @@ class CheckIn(BaseModel):
     self_harm: bool = False
     heart_condition: bool = False
     crisis: bool = False
+    adult: bool = True
+    other_condition: bool = False
     consent: bool = False
     body: BodyIn | None = None
     history: list[dict] = Field(default_factory=list, max_length=200)
@@ -246,7 +250,8 @@ def check(body: CheckIn, request: Request) -> dict:
     if any(v not in (0, 1, 2, 3) for v in body.gad_items):
         raise HTTPException(422, "GAD-7 answers must each be from 0 to 3.")
     return checks.evaluate(body.gad_items, body.impact, body.self_harm, body.heart_condition, body.crisis,
-                           body.body.model_dump() if body.body else None, checks.parse_checks(body.history), _now_ms())
+                           body.body.model_dump() if body.body else None, checks.parse_checks(body.history), _now_ms(),
+                           body.adult, body.other_condition)
 
 
 @app.post("/api/screen")
@@ -255,8 +260,8 @@ def screen(body: ScreenIn, request: Request) -> dict:
     _limit(request)
     if any(v not in (0, 1, 2, 3) for v in body.gad_items):
         raise HTTPException(422, "GAD-7 answers must each be from 0 to 3.")
-    decision = check_entry(sum(body.gad_items), body.self_harm, body.heart_condition, body.crisis)
-    status = {Action.CRISIS: "crisis", Action.REFER: "referred"}.get(decision.action, "allow")
+    decision = check_entry(sum(body.gad_items), body.self_harm, body.heart_condition, body.crisis, body.adult, body.other_condition)
+    status = "minor" if not body.adult and decision.action is Action.REFER else {Action.CRISIS: "crisis", Action.REFER: "referred"}.get(decision.action, "allow")
     return {"status": status, "exit_message": decision.message}
 
 

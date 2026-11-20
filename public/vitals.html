@@ -21,11 +21,7 @@
       <h1 class="heading-3" id="v-title">Your body's side of the story.</h1>
       <p class="title-2" id="v-sub">Our wearable prototype reads heart rhythm, pulse, skin conductance and movement. It's being linked to this app, so the signals below are a labelled demo stream until then.</p>
       <div id="v-mask"></div>
-      <ol class="connect-steps body-5">
-        <li><span>Wear the device, with its electrodes and sensors attached.</span></li>
-        <li><span>Open the AnxiAway mobile app, which receives the signals from the device.</span></li>
-        <li><span>Readings arrive here by themselves. Nothing needs pairing on this page.</span></li>
-      </ol>
+      <p class="body-5 muted"><strong>Not connected yet.</strong> Once the link is switched on, the plan is simple: wear the device, open our mobile app that receives its signals, and readings arrive here by themselves. Until then, everything on this page is a labelled demo stream.</p>
     </div>
     <figure class="stack-sm" style="margin: 0">
       <button class="photo-open device-photo" type="button" aria-haspopup="dialog" data-caption="Our actual capstone prototype. ECG, PPG, skin conductance and motion sensors on an ESP32.">
@@ -89,7 +85,7 @@
     </section>
   </div>
 
-  <details class="card clay rise">
+  <details class="card clay rise" hidden>
     <summary class="title-3">For the team: how the device connects</summary>
     <div class="stack-sm">
       <p class="body-6 muted">This app pulls the latest readings from the same API our mobile app uses. Set <span class="mono">ANXIAWAY_DEVICE_API_URL</span> on the server (and <span class="mono">ANXIAWAY_DEVICE_API_KEY</span> if needed), and the wearable option switches on everywhere. One sample a second is expected.</p>

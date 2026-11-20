@@ -23,10 +23,10 @@
   <!-- 1. Before the pitch -->
   <form class="pitch-step" id="p-setup" novalidate>
     <span class="caption-3 pitch-eyebrow">Before the pitch</span>
-    <h1 class="heading-1">What does anxiety predict about the next ten minutes?</h1>
+    <h1 class="heading-1">What does anxiety predict about the next few minutes?</h1>
     <div class="chips" id="p-chips">
-      <button class="chip" type="button">I'll freeze during Q&amp;A.</button>
-      <button class="chip" type="button">I'll lose my place in front of everyone.</button>
+      <button class="chip" type="button">I'll lose my place during this pitch.</button>
+      <button class="chip" type="button">I'll go blank and stop talking during the demo.</button>
       <button class="chip" type="button">The judges will see that I don't know my own project.</button>
     </div>
     <label class="field"><span class="visually-hidden">Your prediction</span><textarea id="p-worry" rows="2" maxlength="300" placeholder="Write the real one"></textarea></label>
@@ -35,10 +35,7 @@
       <output class="heading-1 mono" id="p-belief-out">70%</output>
       <input id="p-belief" type="range" min="0" max="100" value="70" aria-label="How likely it feels, in percent">
     </div>
-    <button class="agree" id="p-sample" type="button" role="switch" aria-checked="true">
-      <span class="agree-track"><span class="agree-knob"></span></span>
-      <span class="agree-text"><strong class="title-3">Show a sample history behind it</strong><span class="caption-5">Labelled as sample on screen. Only this prediction is real.</span></span>
-    </button>
+
     <p class="error" id="p-error" role="alert" hidden></p>
     <button class="btn btn-cta btn-lg pitch-next" id="p-sharpen" type="submit">Make it checkable<i class="icon i20" style="--i:url(/icons/arrow-right.svg)"></i></button>
     <p class="caption-5 pitch-note">This text is sent to Groq through our server, which keeps none of it. Your record stays in this browser. It isn't therapy or diagnosis.</p>

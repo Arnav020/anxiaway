@@ -134,7 +134,9 @@ const daysText = (d) => (Number(d) === 1 ? "Tomorrow" : `In ${d} days`);
 $("f-days").addEventListener("input", (e) => { $("o-days").textContent = daysText(e.target.value); });
 $("f-belief").addEventListener("input", (e) => { $("o-belief").textContent = `${e.target.value}%`; });
 $("f-after").addEventListener("input", (e) => { $("o-after").textContent = `${e.target.value}%`; });
-$("f-peak").addEventListener("input", (e) => { $("o-peak").textContent = `${e.target.value} of 10`; });
+// An untouched slider is "not rated", never a default 5.
+let peakRated = false;
+$("f-peak").addEventListener("input", (e) => { peakRated = true; $("o-peak").textContent = `${e.target.value} of 10`; });
 function chipsFill(container, input) {
   container.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("click", () => {
     input.value = chip.textContent;
@@ -550,7 +552,12 @@ function routeExit() {
   ["wizard", "debrief", "report"].forEach((id) => { $(id).hidden = true; });
   const titles = { referred: "Let's get you the right support", crisis: "You deserve support right now", medical: "Please look after yourself first" };
   $("exit-title").textContent = titles[session.status];
-  $("exit-text").textContent = session.exit_message;
+  store.helpText($("exit-text"), session.exit_message);
+  // Something typed during practice pauses practice for a day, and then a new check comes first.
+  // (A session only starts from a check that passed, so every exit here comes from what was typed.)
+  store.setHold(session.status);
+  $("exit-ended").hidden = false;
+  $("exit-breathe").hidden = session.status !== "medical";
   $("exit").hidden = false;
   scrollTo(0, 0);
 }
@@ -871,7 +878,7 @@ $("debrief-form").addEventListener("submit", async (e) => {
     accept(await api("finish", {
       token,
       belief_after: Number($("f-after").value),
-      post: { peak_distress: Number($("f-peak").value), symptoms: [...form.symptoms], outcome: form.outcome, note: $("f-note").value.trim() },
+      post: { peak_distress: peakRated ? Number($("f-peak").value) : null, symptoms: [...form.symptoms], outcome: form.outcome, note: $("f-note").value.trim() },
     }));
     if (session.status === "complete") renderReport();
     else routeExit();
@@ -908,7 +915,7 @@ function renderReport() {
   $("r-pred").textContent = r.prediction;
   $("r-before").textContent = `${r.belief_before}%`;
   $("r-after").textContent = `${r.belief_after}%`;
-  $("r-outcome").textContent = { yes: "Yes", partly: "Partly", no: "No" }[r.post.outcome] || "Not answered";
+  $("r-outcome").textContent = `${{ yes: "Yes", partly: "Partly", no: "No" }[r.post.outcome] || "Not answered"}, in the practice`;
   $("r-summary").textContent = r.summary;
   $("r-insight").textContent = r.insight;
 
@@ -946,16 +953,16 @@ function renderReport() {
   scrollTo(0, 0);
 }
 function saveToRecord(r) {
-  // The session is practice, so the real outcome stays open until the person checks it later.
-  const dueAt = Date.now() + r.next_day * 86400000;
+  // The session is practice, so the real outcome stays open until the person checks it after the real event.
+  const existing = fromPrediction && ledger.get(fromPrediction);
+  const dueAt = existing?.due_at || Date.now() + (r.days_until || r.next_day) * 86400000;
   try {
     if (!savedToRecord) {
       savedToRecord = true;
-      const existing = fromPrediction && ledger.get(fromPrediction);
       if (existing) ledger.update(existing.id, { practised: (existing.practised || 0) + 1 });
       else ledger.add({ text: r.prediction, event: r.event, belief_before: r.belief_before, due_at: dueAt, source: "session", sample: usedSample });
     }
-    $("r-saved").textContent = `Saved to your track record. Check what really happened by ${new Date(dueAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}.`;
+    $("r-saved").textContent = `Saved to your track record. After the real event, check what really happened, by ${new Date(dueAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}.`;
     $("r-saved").hidden = false;
   } catch {
     $("r-saved").hidden = true;

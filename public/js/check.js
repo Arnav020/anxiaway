@@ -22,7 +22,7 @@ const GAD_OPTIONS = ["Not at all", "Several days", "More than half the days", "N
 const IMPACT = ["Not difficult at all", "Somewhat difficult", "Very difficult", "Extremely difficult"];
 const SAMPLE_GAD = [2, 1, 2, 1, 0, 1, 2];
 
-const form = { consent: !!store.prefs().consent_at, self_harm: null, crisis: null, heart_condition: null, gad: Array(7).fill(null), impact: null, source: "none", body: null };
+const form = { consent: !!store.prefs().consent_at, self_harm: null, crisis: null, heart_condition: null, adult: null, other_condition: null, gad: Array(7).fill(null), impact: null, source: "none", body: null };
 let usedSample = false;
 let device = { configured: false };
 let cursor = null;
@@ -84,24 +84,27 @@ $("s-intro").addEventListener("submit", (e) => {
 });
 
 /* Safety: asked before anything else, and answered by fixed code */
-const FLAGS = { "q-harm": "self_harm", "q-crisis": "crisis", "q-heart": "heart_condition" };
+const FLAGS = { "q-harm": "self_harm", "q-crisis": "crisis", "q-heart": "heart_condition", "q-adult": "adult", "q-other": "other_condition" };
 function setFlag(id, value) {
   form[FLAGS[id]] = value;
   $(id).querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.v === String(value))));
 }
 Object.keys(FLAGS).forEach((id) => $(id).querySelectorAll("button").forEach((b) => b.addEventListener("click", () => setFlag(id, b.dataset.v === "true"))));
-function exitWith(title, message) {
+function exitWith(title, message, hold = true) {
+  // A crisis answer pauses practice for a day, and then needs a new check.
+  if (hold) store.setHold("crisis");
   $("exit-title").textContent = title;
-  $("exit-text").textContent = message;
+  store.helpText($("exit-text"), message);
   show("s-exit", false);
 }
 $("s-safety").addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (Object.values(FLAGS).some((k) => form[k] === null)) return showError("e-safety", "Please answer all three questions.");
+  if (Object.values(FLAGS).some((k) => form[k] === null)) return showError("e-safety", "Please answer all five questions.");
   showError("e-safety");
   try {
-    const result = await store.api("screen", { gad_items: Array(7).fill(0), self_harm: form.self_harm, heart_condition: false, crisis: form.crisis });
+    const result = await store.api("screen", { gad_items: Array(7).fill(0), self_harm: form.self_harm, heart_condition: false, crisis: form.crisis, adult: form.adult, other_condition: false });
     if (result.status === "crisis") return exitWith("You deserve support right now", result.exit_message);
+    if (result.status === "minor") return exitWith("AnxiAway is for adults", result.exit_message, false);
     show("s-gad");
   } catch (err) {
     showError("e-safety", err.message);
@@ -254,9 +257,10 @@ $("s-body").addEventListener("submit", async (e) => {
   try {
     const result = await store.api("check", {
       gad_items: form.gad, impact: form.impact, self_harm: form.self_harm, heart_condition: form.heart_condition, crisis: form.crisis,
-      consent: true, body: form.body ? { state: form.body.state, source: form.source === "device" ? "device" : "demo" } : null, history: store.checksForApi(),
+      adult: form.adult, other_condition: form.other_condition, consent: true, body: form.body ? { state: form.body.state, source: form.source === "device" ? "device" : "demo" } : null, history: store.checksForApi(),
     });
     if (result.status === "crisis") return exitWith("You deserve support right now", result.exit_message);
+    if (result.status === "minor") return exitWith("AnxiAway is for adults", result.exit_message, false);
     if (!store.prefs().consent_at) store.setPrefs({ consent_at: Date.now() });
     const body = form.body;
     store.addCheck({
@@ -276,13 +280,16 @@ $("s-body").addEventListener("submit", async (e) => {
 const AGREE_TITLE = { none: "Answers only", untrusted: "Reading not used", baseline: "Baseline set", differ: "They differ, and that's common", agree: "They point the same way" };
 function renderResult(r, body) {
   $("r-date").textContent = store.dateText(r.at, { day: "numeric", month: "long", year: "numeric" });
-  $("r-title").textContent = `${r.band} anxiety symptoms on screening.`;
+  // A flag that blocks practice belongs in the headline, not only further down.
+  $("r-title").textContent = r.status !== "ok" && r.score < 15
+    ? `${r.band} anxiety symptoms on screening. Guided practice waits for now.`
+    : `${r.band} anxiety symptoms on screening.`;
   $("r-sub").textContent = `You scored ${r.score} of 21 on GAD-7. It's a screening result, not a diagnosis, and it sits beside your body reading without being merged into one number.`;
 
   $("r-support").hidden = r.status === "ok";
   if (r.status !== "ok") {
-    $("r-support-title").textContent = r.score >= 15 ? "A person is the right next step" : "One thing before practice";
-    $("r-support-text").textContent = r.exit_message;
+    $("r-support-title").textContent = r.score >= 15 ? "A person is the right next step" : "Before any guided practice";
+    store.helpText($("r-support-text"), r.exit_message);
   }
 
   gauge($("r-gauge"), r.score, { light: true });
@@ -324,9 +331,12 @@ function renderResult(r, body) {
   $("r-why").textContent = r.pathway.why;
   $("r-steps").replaceChildren(...r.pathway.steps.map((s) => el("li", "", s)));
   const t = r.trend;
+  const soon = t.previous_days !== null && t.previous_days !== undefined && t.previous_days < r.recheck_days;
   $("r-trend").textContent = t.change === null
-    ? `This is your first check. Screening looks back two weeks, so check again in ${r.recheck_days} days to see a trend.`
-    : `Compared with your last check: ${t.change > 0 ? "+" : ""}${t.change} point${Math.abs(t.change) === 1 ? "" : "s"}, which counts as ${t.direction}.`;
+    ? (soon
+      ? `Your last check was less than two weeks ago. GAD-7 looks back over two weeks, so checks closer together than that aren't compared.`
+      : `This is your first check. Screening looks back two weeks, so check again in ${r.recheck_days} days to see a trend.`)
+    : `Compared with your check from at least two weeks before: ${t.change > 0 ? "+" : ""}${t.change} point${Math.abs(t.change) === 1 ? "" : "s"}, which counts as ${t.direction}.`;
   $("r-items").replaceChildren(...r.items.map((item) => {
     const li = el("li");
     const pips = el("span", "gad-pips");
@@ -340,7 +350,7 @@ function renderResult(r, body) {
 
   const params = new URLSearchParams(location.search);
   const practice = $("r-practice");
-  practice.hidden = r.status !== "ok";
+  practice.hidden = r.status !== "ok" || !!store.activeHold()?.active;
   if (params.get("next") === "session") {
     const pred = params.get("pred");
     practice.href = pred ? `/session?pred=${encodeURIComponent(pred)}` : "/session";

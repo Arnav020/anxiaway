@@ -292,3 +292,6 @@ details.card[open] summary { padding-bottom: 12px; }
   .rise, .check-step { animation: none; }
   .breath-orb { transition: none; }
 }
+
+/* Helpline numbers in fixed safety text are tappable. */
+.tel-link { color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
